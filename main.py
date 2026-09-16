@@ -484,7 +484,7 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # ကန့်သတ်ချက် (LIMIT) မပါဘဲ သိမ်းထားသမျှ Codes အားလုံးကို ထုတ်ယူမည်
+    # Database ထဲမှာ သိမ်းထားသမျှ Codes အားလုံးကို LIMIT မပါဘဲ အကုန်ထုတ်ယူမည်
     cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC", (user_id,))
     rows = cursor.fetchall()
 
