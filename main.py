@@ -27,7 +27,7 @@ MAX_CONCURRENT = 200
 CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8810639279:AAHi3fEF7Kwhy274COsNgbTPXH-gAqehHhI"
+TOKEN = "8844626304:AAGTRtQRq6pLwEaUkWSwCb2eZaHVfl2RmA4"
 
 # Proxy List
 PROXY_LIST = [
@@ -151,15 +151,15 @@ def code_generator(mode):
     elif mode == "7":
         codes = [str(i).zfill(7) for i in range(10000000)]
     elif mode == "8":
-        codes = [str(i).zfill(8) for i in range(1000000)]
+        codes = [str(i).zfill(8) for i in range(100000000)]
     elif mode == "9":
-        codes = [str(i).zfill(9) for i in range(1000000)]
+        codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(300000)]
     else:
         codes = [str(i).zfill(6) for i in range(1000000)]
 
@@ -254,6 +254,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             await asyncio.sleep(0.01)
             if context.user_data.get('scan_stop', False): break
 
+            # Telegram Rate Limit မမိစေရန် ၁ စက္ကန့်မှ တစ်ကြိမ်သာ edit_text လုပ်မည်
             current_time = time.time()
             if current_time - last_edit_time < 1.0:
                 continue
@@ -484,8 +485,7 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # Database ထဲမှာ သိမ်းထားသမျှ Codes အားလုံးကို LIMIT မပါဘဲ အကုန်ထုတ်ယူမည်
-    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC", (user_id,))
+    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 50", (user_id,))
     rows = cursor.fetchall()
 
     if not rows:
@@ -494,21 +494,15 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # Telegram စာသားအရှည် ကန့်သတ်ချက်ကြောင့် အပိုင်းလိုက် (Chunks) ခွဲထုတ်ပေးမည်
-    chunk_size = 50
-    for i in range(0, len(rows), chunk_size):
-        chunk = rows[i:i + chunk_size]
-        result_text = f"💎 **Saved Codes ({i+1} - {i+len(chunk)} / {len(rows)})**\n\n"
-        for idx, item in enumerate(chunk, i + 1):
-            result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
-        
-        if query:
-            await query.message.reply_text(result_text, parse_mode="Markdown")
-        else:
-            await update.message.reply_text(result_text, parse_mode="Markdown")
+    result_text = f"💎 **Saved Codes (Latest {len(rows)})**\n\n"
+    for idx, item in enumerate(rows, 1):
+        result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
 
     if query:
+        await query.message.reply_text(result_text, parse_mode="Markdown")
         await query.answer()
+    else:
+        await update.message.reply_text(result_text, parse_mode="Markdown")
 
 async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
