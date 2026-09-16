@@ -1,0 +1,16 @@
+aiohttp
+aiosignal
+async-timeout
+attrs
+certifi
+charset-normalizer
+click
+colorama
+idna
+multidict
+yarl
+python-telegram-bot
+nest-asyncio
+ddddocr
+opencv-python-headless
+numpy
