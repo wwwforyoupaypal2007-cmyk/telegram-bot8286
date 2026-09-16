@@ -1,6 +1,0 @@
-python-telegram-bot
-aiohttp
-ddddocr
-opencv-python-headless
-numpy
-nest-asyncio
