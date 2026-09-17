@@ -151,17 +151,17 @@ def code_generator(mode):
     elif mode == "7":
         codes = [str(i).zfill(7) for i in range(10000000)]
     elif mode == "8":
-        codes = [str(i).zfill(8) for i in range(100000000)]
+        codes = [str(i).zfill(8) for i in range(10000000)]
     elif mode == "9":
-        codes = [str(i).zfill(9) for i in range(1000000000)]
+        codes = [str(i).zfill(9) for i in range(10000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(3000000000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(10000000000000000000)]
+        codes = [str(i).zfill(6) for i in range(1000000)]
 
     random.shuffle(codes)
     for code in codes:
@@ -254,6 +254,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             await asyncio.sleep(0.01)
             if context.user_data.get('scan_stop', False): break
 
+            # Telegram Rate Limit မမိစေရန် ၁ စက္ကန့်မှ တစ်ကြိမ်သာ edit_text လုပ်မည်
             current_time = time.time()
             if current_time - last_edit_time < 1.0:
                 continue
@@ -462,7 +463,7 @@ async def brute_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT session_url FROM user_sessions WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     if not row:
-        await query.message.reply_text("❌ ကျေးဇူးပြု၍ ပထမဦးစွာ `Session URL Setup` ဖြင့် URL ထည့်သွင်းပါရန်။", parse_mode="Markdown")
+        await query.message.reply_text("❌ ကျေးဇူးပြု၍ ပထမဦးစွာ `Session URL Setup` ဖြင့် URL ထည့်သွင်းပါရန်。", parse_mode="Markdown")
         return
 
     keyboard = InlineKeyboardMarkup([
@@ -484,8 +485,7 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # LIMIT ကို 300 သို့ ပြောင်းထားပါသည် (စာလုံးရေ အလွန်များပါက Telegram error တက်နိုင်သဖြင့် 300 ထိ လက်ခံပေးထားသည်)
-    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 300", (user_id,))
+    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 50", (user_id,))
     rows = cursor.fetchall()
 
     if not rows:
