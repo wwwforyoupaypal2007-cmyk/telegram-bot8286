@@ -27,11 +27,13 @@ MAX_CONCURRENT = 200
 CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8844626304:AAGTRtQRq6pLwEaUkWSwCb2eZaHVfl2RmA4"
+TOKEN = "8810639279:AAHi3fEF7Kwhy274COsNgbTPXH-gAqehHhI"
 
-# Proxy List
+# Proxy List (HTTP Proxies)
 PROXY_LIST = [
-    # "http://123.45.67.89:8080",
+    "http://67.203.23.88:8081",
+    "http://66.151.34.89:80",
+    "http://163.181.207.214:9999",
 ]
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
@@ -254,7 +256,6 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             await asyncio.sleep(0.01)
             if context.user_data.get('scan_stop', False): break
 
-            # Telegram Rate Limit မမိစေရန် ၁ စက္ကန့်မှ တစ်ကြိမ်သာ edit_text လုပ်မည်
             current_time = time.time()
             if current_time - last_edit_time < 1.0:
                 continue
@@ -304,7 +305,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
 
