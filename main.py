@@ -23,8 +23,8 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 300
-CONNECTION_LIMIT = 300
+MAX_CONCURRENT = 200
+CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8864755007:AAFgeXU_eJGVTnK_nb13NlIlzIblWiepgYg"
