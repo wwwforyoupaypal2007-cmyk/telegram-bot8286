@@ -209,11 +209,8 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                                     conn.commit()
 
                                 hit_message = (
-                                    f"🎉 **HIT FOUND!**\n"
                                     f"Code: `{code}`\n"
-                                    f"Plan: {plan_name}\n"
                                     f"Balance: {balance_display}\n"
-                                    f"🛒 ဝယ်ယူရန်: [Admin @{ADMIN_USERNAME}]({ADMIN_URL})"
                                 )
                                 try:
                                     await chat_obj.send_message(hit_message, parse_mode="Markdown", disable_web_page_preview=True)
