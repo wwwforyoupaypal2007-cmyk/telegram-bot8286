@@ -23,13 +23,13 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 400  # Speed မြင့်မားစေရန် 400 သို့ တိုးထားပါသည်
-CONNECTION_LIMIT = 400
+MAX_CONCURRENT = 200
+CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8780431275:AAF8-qGOEdzySJQL51yvrV387GoYgo_72ss"
 
-# Proxy List (Proxy တွေကြောင့် နှေးနေပါက PROXY_LIST = [] ဟု အလွတ်ထားပေးပါ)
+# 🌐 Proxy List ထည့်သွင်းသည့်နေရာ
 PROXY_LIST = [
     "http://67.203.23.88:8081",
     "http://66.151.34.89:80",
@@ -163,22 +163,23 @@ def code_generator(mode):
     elif mode == "7":
         codes = [str(i).zfill(7) for i in range(10000000)]
     elif mode == "8":
-        codes = [str(i).zfill(8) for i in range(1000000)]
+        codes = [str(i).zfill(8) for i in range(100000000)]
     elif mode == "9":
-        codes = [str(i).zfill(9) for i in range(1000000)]
+        codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(300000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(3000000000000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(1000000)]
+        codes = [str(i).zfill(6) for i in range(10000000000000000000)]
 
     random.shuffle(codes)
     for code in codes:
         yield code
 
+# ── ပြင်ဆင်ပြီးသား perform_check_silent function ─────────────────────────────
 async def perform_check_silent(code, chat_obj, session_url, connector, context_data):
     if context_data.get('scan_stop', False): return None
     context_data['current_code'] = code
@@ -222,6 +223,20 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                                 async with db_lock:
                                     cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
                                     conn.commit()
+
+                                # 🎉 Hit တွေ့တာနဲ့ ချက်ချင်း Message ပို့ပေးမည့် ပုံစံ
+                                hit_message = (
+                                    f"🎉 **HIT FOUND!**\n"
+                                    f"Code: `{code}`\n"
+                                    f"Plan: {plan_name}\n"
+                                    f"Balance: {balance_display}\n"
+                                    f"🛒 ဝယ်ယူရန်: [Admin @{ADMIN_USERNAME}]({ADMIN_URL})"
+                                )
+                                try:
+                                    await chat_obj.send_message(hit_message, parse_mode="Markdown", disable_web_page_preview=True)
+                                except:
+                                    pass
+
                             return True
                     context_data['expired'] += 1; return None
         except:
@@ -308,7 +323,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
 
@@ -324,7 +339,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cursor.execute("INSERT OR REPLACE INTO authorized_users (user_id, duration_type, expiry_time) VALUES (?, ?, ?)", (user_id, "Admin", float('inf')))
             conn.commit()
 
-    buy_text = f"\n\n🛒 **Code ဝယ်ယူရန်:** [Admin @gobiln07 သို့ ဆက်သွယ်ပါ]({ADMIN_URL})"
+    buy_text = f"\n\n🛒 **Code ဝယ်ယူရန်:** [Admin @{ADMIN_USERNAME} သို့ ဆက်သွယ်ပါ]({ADMIN_URL})"
 
     if not check_user_auth(user_id, username):
         keyboard = InlineKeyboardMarkup([
@@ -332,7 +347,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("👨‍💻 Admin ဆက်သွယ်ရန်", url=ADMIN_URL)]
         ])
         await update.message.reply_text(
-            f"🔒 **Access Denied**\n\nဤဘော့တ်ကို အသုံးပြုရန် Admin ထံမှ ရရှိထားသော Access Code လိုအပ်ပါသည်။ အောက်ပါခလုတ်ကိုနှိပ်ပြီး Code ထည့်သွင်းပါရန်。{buy_text}",
+            f"🔒 **Access Denied**\n\nဤဘော့တ်ကို အသုံးပြုရန် Admin ထံမှ ရရှိထားသော Access Code လိုအပ်ပါသည်။ အောက်ပါခလုတ်ကိုနှိပ်ပြီး Code ထည့်သွင်းပါရန်။{buy_text}",
             reply_markup=keyboard,
             parse_mode="Markdown",
             disable_web_page_preview=True
@@ -354,7 +369,7 @@ async def ask_code_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data['waiting_for_code'] = True
-    await query.message.reply_text("🔑 ကျေးဇူးပြု၍ သင့်ထံတွင်ရှိသော Access Code ကို ဤချတ်ဘောက်စ်ထဲတွင် ရိုက်ထည့်ပေးပါရန်。", parse_mode="Markdown")
+    await query.message.reply_text("🔑 ကျေးဇူးပြု၍ သင့်ထံတွင်ရှိသော Access Code ကို ဤချတ်ဘောက်စ်ထဲတွင် ရိုက်ထည့်ပေးပါရန်။", parse_mode="Markdown")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
@@ -410,7 +425,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
             await message.reply_text("✅ **Session URL သိမ်းဆည်းပြီးပါပြီ။** အောက်ပါ Menu မှ ဆက်လုပ်နိုင်ပါပြီ -", reply_markup=keyboard)
         else:
-            await message.reply_text("❌ URL ပုံစံ မှန်ကန်မှု မရှိပါ။ http:// သို့မဟုတ် https:// ဖြင့် စတင်ရပါမည်။")
+            await message.reply_text("❌ URL ပုံစံ မှန်ကန်မှု မရှိပါ။ http:// သို့မဟုတ် https:// ဖြင့် စတင်ရပါမည်。")
         return
 
 async def gen_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
