@@ -27,9 +27,8 @@ MAX_CONCURRENT = 100
 CONNECTION_LIMIT = 100
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8780431275:AAEc2pOvGNEdL9hgFB_I1ZexP_TUyqB-FqU"
+TOKEN = "8780431275:AAF8-qGOEdzySJQL51yvrV387GoYgo_72ss"
 
-# Proxy များကို အသုံးမပြုလိုပါက PROXY_LIST = [] ဟုထားပေးပါ (Direct Connection ဖြင့် ပိုတည်ငြိမ်သည်)
 PROXY_LIST = []
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
@@ -165,7 +164,6 @@ def code_generator(mode):
     for code in codes:
         yield code
 
-# ── ထပ်မံပြင်ဆင်ထားသော perform_check_silent ──────────────────────────────
 async def perform_check_silent(code, chat_obj, session_url, connector, context_data):
     if context_data.get('scan_stop', False): return None
     context_data['current_code'] = code
@@ -319,6 +317,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     username = user.username
+    chat = update.effective_chat
 
     if is_admin(username):
         async with db_lock:
@@ -332,7 +331,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔑 Access Code ထည့်ရန်", callback_data="ask_code")],
             [InlineKeyboardButton("👨‍💻 Admin ဆက်သွယ်ရန်", url=ADMIN_URL)]
         ])
-        await update.message.reply_text(
+        await chat.send_message(
             f"🔒 **Access Denied**\n\nဤဘော့တ်ကို အသုံးပြုရန် Admin ထံမှ ရရှိထားသော Access Code လိုအပ်ပါသည်။ အောက်ပါခလုတ်ကိုနှိပ်ပြီး Code ထည့်သွင်းပါရန်။{buy_text}",
             reply_markup=keyboard,
             parse_mode="Markdown",
@@ -347,9 +346,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_admin(username):
         admin_extra = "\n\n👑 **Admin Commands:**\n- `/gen 30မိနစ်` (သို့) `/gen30မိနစ်` - Key ထုတ်ရန်"
-        await update.message.reply_text(f"🚀 **Brute Force Bot (Admin Panel)**\n\nအောက်ပါ Menu မှ ရွေးချယ်ပါ -{admin_extra}{buy_text}", reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
+        await chat.send_message(f"🚀 **Brute Force Bot (Admin Panel)**\n\nအောက်ပါ Menu မှ ရွေးချယ်ပါ -{admin_extra}{buy_text}", reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
     else:
-        await update.message.reply_text(f"🍺 **Ruijie Voucher Bot**\n\nအောက်ပါ Menu မှ ရွေးချယ်ပါ -{buy_text}", reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
+        await chat.send_message(f"🍺 **Ruijie Voucher Bot**\n\nအောက်ပါ Menu မှ ရွေးချယ်ပါ -{buy_text}", reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
 
 async def ask_code_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -431,7 +430,7 @@ async def gen_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     valid_durations = ["10မိနစ်", "30မိနစ်", "1နာရီ", "2နာရီ", "3နာရီ", "10နာရီ", "1ရက်", "2ရက်", "3ရက်", "7ရက်", "15ရက်", "30ရက်"]
 
     if not arg or arg not in valid_durations:
-        await update.message.reply_text(f"❌ ပုံစံမှားနေပါသည်။ ဥပမာ: `/gen 30မိနစ်` (သို့) `/gen30မိနစ်`\n\nရနိုင်သည်များ: {', '.join(valid_durations)}", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ ပုံစံမှားနေပါသည်။ ဥပမာ: `/gen 30မိနစ်` (သို့) `/gen30မိနစ်`\n\nရနိုင်သည်များ: {', '.join(valid_durations)}", parse_Mode="Markdown")
         return
 
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
