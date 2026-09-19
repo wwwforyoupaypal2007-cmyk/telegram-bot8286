@@ -30,23 +30,7 @@ ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8780431275:AAEc2pOvGNEdL9hgFB_I1ZexP_TUyqB-FqU"
 
 # 🌐 Proxy List ထည့်သွင်းသည့်နေရာ
-PROXY_LIST = [
-    "http://67.203.23.88:8081",
-    "http://66.151.34.89:80",
-    "http://153.72.68.0:8080",
-    "http://163.181.207.214:9999",
-    "http://147.161.246.246:11921",
-    "http://202.133.88.173:80",
-    "http://185.135.69.34:80",
-    "http://114.236.137.41:21000",
-    "http://49.146.50.98:8082",
-    "http://43.156.40.114:8080",
-    "http://114.111.151.41:80",
-    "http://45.174.242.142:999",
-    "http://116.12.47.94:8080",
-]
-proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
-
+PROXY_LIST = []
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
 conn = sqlite3.connect('bot_database.db', check_same_thread=False)
 conn.execute('PRAGMA journal_mode=WAL;')
