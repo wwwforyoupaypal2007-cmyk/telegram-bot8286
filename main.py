@@ -168,12 +168,12 @@ def code_generator(mode):
         codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(3000000000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(10000000000000000000)]
+        codes = [str(i).zfill(6) for i in range(1000000)]
 
     random.shuffle(codes)
     for code in codes:
@@ -226,11 +226,8 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
 
                                 # 🎉 Hit တွေ့တာနဲ့ ချက်ချင်း Message ပို့ပေးမည့် ပုံစံ
                                 hit_message = (
-                                    f"🎉 **HIT FOUND!**\n"
                                     f"Code: `{code}`\n"
-                                    f"Plan: {plan_name}\n"
                                     f"Balance: {balance_display}\n"
-                                    f"🛒 ဝယ်ယူရန်: [Admin @{ADMIN_USERNAME}]({ADMIN_URL})"
                                 )
                                 try:
                                     await chat_obj.send_message(hit_message, parse_mode="Markdown", disable_web_page_preview=True)
