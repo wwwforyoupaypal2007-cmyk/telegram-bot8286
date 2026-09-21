@@ -27,7 +27,7 @@ MAX_CONCURRENT = 200
 CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8635041212:AAHs_Pq2OxaZ6g-aSarGMlbSnZ8rvzjdCB4"
+TOKEN = "8895305429:AAFUhYikhgaLWOMcxRSMzeMdYbxbYBN9QCM"
 
 # 🌐 Proxy List ထည့်သွင်းသည့်နေရာ
 PROXY_LIST = [
@@ -179,7 +179,6 @@ def code_generator(mode):
     for code in codes:
         yield code
 
-# ── ပြင်ဆင်ပြီးသား perform_check_silent function ─────────────────────────────
 async def perform_check_silent(code, chat_obj, session_url, connector, context_data):
     if context_data.get('scan_stop', False): return None
     context_data['current_code'] = code
@@ -224,10 +223,11 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                                     cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
                                     conn.commit()
 
-                                # 🎉 Hit တွေ့တာနဲ့ ချက်ချင်း Message ပို့ပေးမည့် ပုံစံ
                                 hit_message = (
+                                    f"💯 **Hit Found!**\n"
                                     f"Code: `{code}`\n"
                                     f"Balance: {balance_display}\n"
+                                    f"🛒 **ဝယ်ယူရန်:** [Admin @{ADMIN_USERNAME}]({ADMIN_URL})"
                                 )
                                 try:
                                     await chat_obj.send_message(hit_message, parse_mode="Markdown", disable_web_page_preview=True)
@@ -320,7 +320,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
 
@@ -405,7 +405,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn.commit()
 
         context.user_data['waiting_for_code'] = False
-        await message.reply_text(f"✅ **Access Granted!** သက်တမ်း ({duration_type}) ဖြင့် အောင်မြင်စွာ စတင်အသုံးပြုနိုင်ပါပြီ。")
+        await message.reply_text(f"✅ **Access Granted!** သက်တမ်း ({duration_type}) ဖြင့် အောင်မြင်စွာ စတင်အသုံးပြုနိုင်ပါပြီ။")
         await start(update, context)
         return
 
@@ -422,7 +422,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
             await message.reply_text("✅ **Session URL သိမ်းဆည်းပြီးပါပြီ။** အောက်ပါ Menu မှ ဆက်လုပ်နိုင်ပါပြီ -", reply_markup=keyboard)
         else:
-            await message.reply_text("❌ URL ပုံစံ မှန်ကန်မှု မရှိပါ။ http:// သို့မဟုတ် https:// ဖြင့် စတင်ရပါမည်。")
+            await message.reply_text("❌ URL ပုံစံ မှန်ကန်မှု မရှိပါ။ http:// သို့မဟုတ် https:// ဖြင့် စတင်ရပါမည်။")
         return
 
 async def gen_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -530,7 +530,7 @@ async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stop_scanning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['scan_stop'] = True
-    await update.message.reply_text("🛑 **စကන්ဖတ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ。**", parse_mode="Markdown")
+    await update.message.reply_text("🛑 **စကන්ဖတ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ။**", parse_mode="Markdown")
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
