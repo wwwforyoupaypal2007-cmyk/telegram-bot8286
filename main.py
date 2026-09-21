@@ -26,7 +26,7 @@ MAX_CONCURRENT = 30  # မြန်နှုန်းကို ထိန်း�
 CONNECTION_LIMIT = 50
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8895305429:AAFUhYikhgaLWOMcxRSMzeMdYbxbYBN9QCM"
+TOKEN = "8631397862:AAGMgYC-BkjN3SnB0GpYbjCRw7NSmoub_TY"
 
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
 conn = sqlite3.connect('bot_database.db', check_same_thread=False)
