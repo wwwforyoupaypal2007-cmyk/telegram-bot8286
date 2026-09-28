@@ -23,8 +23,8 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 150   # Speed ပိုမြန်စေရန် 150 ခုအထိ တိုးမြှင့်ထားသည်
-CONNECTION_LIMIT = 150
+MAX_CONCURRENT = 10   # Speed ပိုမြန်စေရန် 10 ခုအထိ တိုးမြှင့်ထားသည်
+CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8892955827:AAGbWoGsCGnhbtVGBFWFNPPAVsoaNjCrZWk"
@@ -40,8 +40,29 @@ PROXY_LIST = [
     "http://200.36.152.6:999",
     "http://145.220.226.224:8080",
     "http://119.93.178.99:8081",
-    "http://64.90.1.178:1080"
+    "http://64.90.1.178:1080",
+    "http://38.75.82.219:999",
+    "http://104.218.199.61:16062",
+    "http://109.224.242.200:8080",
+    "http://190.216.163.195:999",
+    "http://38.191.194.43:999",
+    "http://120.28.169.31:5050",
+    "http://45.174.56.21:999",
+    "http://165.101.231.92:8090",
+    "http://145.220.226.177:8080",
+    "http://200.48.35.125:999",
+    "http://43.162.115.85:8080",
+    "http://103.53.79.138:8080",
+    "http://145.220.226.12:8080",
+    "http://122.3.145.194:8083",
+    "http://207.246.234.115:4669",
+    "http://92.51.97.3:8080",
+    "http://38.253.86.162:999",
+    "http://145.220.226.62:8080",
+    "http://78.134.20.48:8080",
+    "http://103.235.153.2:3889"
 ]
+
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
