@@ -23,7 +23,7 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 10   # Speed ပိုမြန်စေရန် 10 ခုအထိ တိုးမြှင့်ထားသည်
+MAX_CONCURRENT = 200   # Speed ပိုမြန်စေရန် 200 ခုအထိ တိုးမြှင့်ထားသည်
 CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
