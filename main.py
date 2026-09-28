@@ -27,11 +27,19 @@ MAX_CONCURRENT = 1   # တစ်ကြိမ်လျှင် ၁ ခုတည�
 CONNECTION_LIMIT = 5
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
-TOKEN = "8631397862:AAFfaQ2tCflZfunAQEvyG3c_RfCUlKE69lw"
+TOKEN = "8892955827:AAGbWoGsCGnhbtVGBFWFNPPAVsoaNjCrZWk"
 
 # Proxy List
-PROXY_LIST = [
-    # "http://123.45.67.89:8080",
+PROXY_LIST = [http://103.18.79.108:8080
+http://94.102.224.132:32650
+http://200.107.205.200:999
+http://34.122.187.196:80
+http://94.179.153.218:8081
+http://145.220.226.253:8080
+http://200.36.152.6:999
+http://145.220.226.224:8080
+http://119.93.178.99:8081
+http://64.90.1.178:1080
 ]
 proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
