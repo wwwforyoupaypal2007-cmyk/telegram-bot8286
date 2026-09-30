@@ -28,7 +28,7 @@ limited_texts = {}
 captcha_state = {}
 session = None
 _connector = None
-CONCURRENCY = 200
+CONCURRENCY = 100  # Speed တည်ငြိမ်စေရန် လျှော့ချထားပါသည်
 _voucher_sem = None
 _start_time = time.monotonic()
 
@@ -467,7 +467,7 @@ def format_progress(checked, total=None, speed=0):
         return f"🔍Scanning Codes (@{ADMIN_USERNAME})...\n\n📦Checked : {checked:,}/{total:,}\n📊Progress : {percent:.2f}%\n⚡Speed : {speed_str}\n[{bar}]"
     return f"🔍Scanning Codes (@{ADMIN_USERNAME})...\n\n📦Checked : {checked:,}\n⚡Speed : {speed_str}\n📊Status : running\n"
 
-BATCH_SIZE = 1000
+BATCH_SIZE = 50
 
 async def run_bruteforce(mode, chat_id, session_url, scan_id, message=None, progress_msg=None):
     try:
@@ -499,7 +499,9 @@ async def run_bruteforce(mode, chat_id, session_url, scan_id, message=None, prog
 
             async def _check(code):
                 async with _voucher_sem:
-                    return await perform_check(session_url, code, chat_id, scan_id, message=message)
+                    res = await perform_check(session_url, code, chat_id, scan_id, message=message)
+                    await asyncio.sleep(0.15)  # ဆာဗာ Error မတက်အောင် Delay ထည့်သွင်းထားသည်
+                    return res
 
             await asyncio.gather(*[_check(code) for code in batch], return_exceptions=True)
             checked += len(batch)
@@ -574,6 +576,7 @@ async def perform_check(session_url, code, chat_id, scan_id=None, recheck=False,
                 return
 
         if response and 'request limited' in response:
+            await asyncio.sleep(1)
             continue
         break
 
