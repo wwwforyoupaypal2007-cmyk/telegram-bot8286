@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 
 #ဒီနေရာတွင် ချိန်ညှိပြီးပါပြီ
-BOT_TOKEN = '8810639279:AAEpv0UR763R1KM10MSkl30MorX8VVXD_TI'  # သင်၏ Bot Token ထည့်ရန်
+BOT_TOKEN = '8810639279:AAH9nHDFfLOxUtlWsmKVzc-Dl2EXi7XDHHY'  # သင်၏ Bot Token ထည့်ရန်
 GITHUB_TOKEN = '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'
 REPO_OWNER = "gobiln07"
 REPO_NAME = "Bot"
