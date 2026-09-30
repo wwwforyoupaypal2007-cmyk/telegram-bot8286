@@ -47,10 +47,6 @@ CONNECTION_LIMIT = 200
 ADMIN_USERNAME = "gobiln07"
 ADMIN_URL = f"https://t.me/{ADMIN_USERNAME}"
 TOKEN = "8810639279:AAEND0ipOiYNUh9tehwaAZrFLmyKCiDnHEg"
-# Proxy List
-PROXY_LIST = [
-]
-proxy_pool = itertools.cycle(PROXY_LIST) if PROXY_LIST else None
 
 # ── DATABASE SETUP ────────────────────────────────────────────────────────
 conn = sqlite3.connect('bot_database.db', check_same_thread=False)
@@ -210,10 +206,10 @@ def code_generator(mode):
         codes = [str(i).zfill(9) for i in range(1000000000)]
     elif mode == "alpha6":
         chars = string.ascii_lowercase
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(500000)]
     elif mode == "mix6":
         chars = string.ascii_lowercase + string.digits
-        codes = [''.join(random.choices(chars, k=6)) for _ in range(1000000)]
+        codes = [''.join(random.choices(chars, k=6)) for _ in range(500000)]
     else:
         codes = [str(i).zfill(6) for i in range(1000000)]
 
@@ -358,7 +354,6 @@ async def run_scanner_background(query, session_url, mode, total_codes_count, co
                 f"- Expired: {expired}\n"
                 f"- Limits: {retry_total}\n"
                 f"- Speed: {speed_cm:.1f} c/m"
-                f"- Proxies: {proxy_status}"
             )
             try:
                 await status_msg.edit_text(text, parse_mode="Markdown")
@@ -692,7 +687,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif mode == "9":
             total_codes_count = 1000000000
         elif mode in ["alpha6", "mix6"]:
-            total_codes_count = 300000
+            total_codes_count = 500000
         else:
             total_codes_count = 1000000
 
