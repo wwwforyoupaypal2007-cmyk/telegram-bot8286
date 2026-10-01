@@ -1,4 +1,4 @@
-import telebot, asyncio, aiohttp, json, base64, random, re, os, string, time, uuid
+Import telebot, asyncio, aiohttp, json, base64, random, re, os, string, time, uuid
 from pathlib import Path
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -15,6 +15,7 @@ REPO_OWNER = "gobiln07"
 REPO_NAME = "codehack"
 
 ADMINS = [
+    "7111161545"
 ]
 
 ADMIN_USERNAME = "@gobiln07"
@@ -200,7 +201,7 @@ scan_tasks = {}
 
 # ==================== LOCAL STORAGE ====================
 # Keys and scan results are stored locally; no GitHub connection is required.
-DATA_DIR = Path(__file__).resolve().parent / "goblin_data"
+DATA_DIR = Path(__file__).resolve().parent / "dragon_data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_DATA_LOCK = asyncio.Lock()
 
@@ -298,7 +299,7 @@ async def start(message):
     if message.chat.id not in user_data:
         user_data[message.chat.id] = {}
     
-    welcome_text = f"""{𝐆𝐎𝐁𝐋𝐈𝐍_𝐋𝐎𝐆𝐎}
+    welcome_text = f"""{𝐆𝐎𝐁𝐋𝐈𝐍_𝐋𝐎𝐆𝐎𝐚}
 
  @gobiln07 မွႀကိဳဆိုပါ၏
 
