@@ -1,8 +1,6 @@
-python-telegram-bot
+pyTelegramBotAPI
 aiohttp
-ddddocr
 opencv-python-headless
+ddddocr
 numpy
-nest_asyncio
-Pillow
-requests
+pycryptodome
