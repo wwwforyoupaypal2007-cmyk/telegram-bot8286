@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime, timedelta, timezone
 
 # ==================== CONFIGURATION ====================
-BOT_TOKEN = "8810639279:AAGbXasbWzRXSyNNj7kPmDIsM8AegpdyssE"
+BOT_TOKEN = "8810639279:AAESCr4DdUFbDTRwmvq0CyC6oK2-w3CR-KY"
 GITHUB_TOKEN = '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'
 REPO_OWNER = "gobiln07"
 REPO_NAME = "codehack"
