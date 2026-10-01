@@ -143,6 +143,7 @@ def get_start_scam_keyboard():
     keyboard.add(
         InlineKeyboardButton(" Owner by @gobiln07", callback_data="menu_owner"),
         InlineKeyboardButton(" Telegram @gobiln07", callback_data="menu_telegram"),
+        InlineKeyboardButton("+ Add Proxies", callback_data="menu_add_proxies"),
         InlineKeyboardButton(" Update Portal", callback_data="menu_update_portal"),
         InlineKeyboardButton(" Mode", callback_data="menu_scan_mode"),
         InlineKeyboardButton(" Current Mode: running", callback_data="menu_mode"),
@@ -180,8 +181,7 @@ user_data = {}
 approve = {}
 scan_tasks = {}
 
-# ==================== LOCAL STORAGE ====================
-DATA_DIR = Path(__file__).resolve().parent / "goblin_data"
+DATA_DIR = Path(__file__).resolve().parent / "dragon_data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_DATA_LOCK = asyncio.Lock()
 
@@ -267,7 +267,6 @@ async def update_file_content(path, content, sha, message):
     await _write_local_json(path, content)
     return "local storage updated"
 
-# ==================== START COMMAND ====================
 @bot.message_handler(commands=['start'])
 async def start(message):
     user_id = str(message.chat.id)
@@ -291,7 +290,6 @@ async def start(message):
     
     await bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
 
-# ==================== CALLBACK HANDLER ====================
 @bot.callback_query_handler(func=lambda call: True)
 async def callback_handler(call):
     chat_id = call.message.chat.id
@@ -317,6 +315,25 @@ async def callback_handler(call):
             message_id=call.message.message_id,
             text=text,
             reply_markup=get_main_keyboard()
+        )
+        await bot.answer_callback_query(call.id)
+        return
+    
+    if call.data == "menu_add_proxies":
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=call.message.message_id,
+            text="""+ Add Proxies
+
+Proxyများကို အောက်ပါအတိုင်း တစ်ကြောင်းချင်းစီ ထည့်သွင်းပါ။
+
+ဥပမာ:
+130.110.103.245:3128
+213.131.85.29:1976
+1.231.81.166:3128
+
+ထည့်သွင်းပြီးပါက Bot က အလိုအလျောက် သိမ်းဆည်းပေးပါမည်။""",
+            reply_markup=get_back_keyboard()
         )
         await bot.answer_callback_query(call.id)
         return
@@ -486,7 +503,7 @@ Key ရရှိပြီးပါက အောက်ပါ command ကို �
             codes = "\n".join(results[user_id])
             text = f" Found Codes:\n{codes}"
         else:
-            text = " သင့်တွင် ယခင်ကရရှိထားသော code မရှိသေးပါ။"
+            text = " သင့်တွင် ယခင်ကရရှိထားသော success code မရှိသေးပါ။"
         
         await bot.edit_message_text(
             chat_id=chat_id,
@@ -593,7 +610,6 @@ Key ရရှိပြီးပါက အောက်ပါ command ကို �
         await bot.answer_callback_query(call.id)
         return
 
-# ==================== RECHECK COMMAND ====================
 async def recheck_command(message):
     chat_id = message.chat.id
     if not await has_active_access(chat_id):
@@ -603,7 +619,10 @@ async def recheck_command(message):
     results, sha = await get_file_content("result.json")
     chat_id_str = str(message.chat.id)
     if chat_id_str in results and results[chat_id_str]:
-        if message.chat.id not in user_data or "session_url" not in user_data.get(message.chat.id, {}):
+        if message.chat.id not in user_data:
+            await bot.reply_to(message, "Scan လုပ်ရန် Portal URL ကိုအရင်ထည့်သွင်းပေးပါ။")
+            return
+        if "session_url" not in user_data.get(message.chat.id, {}):
             await bot.reply_to(message, "Scan လုပ်ရန် Portal URL ကိုအရင်ထည့်သွင်းပေးပါ။")
             return
         codes = results[chat_id_str]
@@ -632,7 +651,6 @@ async def save_rechecked_codes(chat_id_str, recheck_list, sha):
     results[chat_id_str] = recheck_list
     await update_file_content("result.json", results, sha, f"Update after recheck for {chat_id_str}")
 
-# ==================== KEY COMMANDS ====================
 @bot.message_handler(commands=['key'])
 async def handle_key(message):
     args = message.text.split(maxsplit=1)
@@ -1321,6 +1339,7 @@ async def perform_check(session_url, code, chat_id, scan_id=None, recheck=False,
             }
             
             proxy = get_next_proxy()
+            
             try:
                 kwargs = {"json": data, "headers": headers}
                 if proxy:
@@ -1376,7 +1395,6 @@ async def Code_Expires_Date(active_id):
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
     
-    proxy = get_next_proxy()
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(
         connector=_connector,
@@ -1385,6 +1403,7 @@ async def Code_Expires_Date(active_id):
         timeout=timeout
     ) as fresh_session:
         for url in paths:
+            proxy = get_next_proxy()
             try:
                 kwargs = {"headers": headers}
                 if proxy:
